@@ -4,6 +4,7 @@
 // Experimental H5/HDF5 JavaScript reader
 
 var hdf5 = hdf5 || {};
+var long = long || { Long: require('long') };
 
 hdf5.File = class {
 
@@ -161,7 +162,7 @@ hdf5.Group = class {
             else {
                 this.decodeDataObject();
                 for (var link of this._dataObjectHeader.links) {
-                    if (link.hasOwnProperty('objectHeaderAddress')) {
+                    if (Object.prototype.hasOwnProperty.call(link, 'objectHeaderAddress')) {
                         var objectHeader = new hdf5.DataObjectHeader(this._reader.move(link.objectHeaderAddress));
                         var linkGroup = new hdf5.Group(this._reader, null, objectHeader, this._globalHeap, this._path, link.name);
                         this._groups.push(linkGroup);
@@ -271,26 +272,17 @@ hdf5.Reader = class {
     }
 
     int64() {
-        var lo = this._dataView.getInt32(this._position + this._offset, true);
+        var lo = this._dataView.getUint32(this._position + this._offset, true);
         var hi = this._dataView.getUint32(this._position + this._offset + 4, true);
         this._offset += 8;
-        if (hi != 0) {
-            throw new hdf5.Error('uint32 outside 32-bit range.');
-        }
-        return lo;
+        return new long.Long(lo, hi, false).toNumber();
     }
 
     uint64() {
         var lo = this._dataView.getUint32(this._position + this._offset, true);
         var hi = this._dataView.getUint32(this._position + this._offset + 4, true);
         this._offset += 8;
-        if (lo == 4294967295 && hi == lo) { // Undefined
-            return -1;
-        } 
-        if (hi != 0) {
-            throw new hdf5.Error('uint64 outside 32-bit range.');
-        }
-        return lo;
+        return new long.Long(lo, hi, true).toNumber();
     }
 
     uint(type) {

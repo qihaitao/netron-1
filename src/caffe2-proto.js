@@ -63,32 +63,27 @@
                 return message;
             };
     
-            ExternalDataProto.decodeText = function decodeText(reader, block) {
+            ExternalDataProto.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.ExternalDataProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "source_type":
-                        reader.value();
                         message.source_type = reader.enum($root.caffe2.ExternalDataProto.SourceType);
                         break;
                     case "record_id":
-                        reader.value();
                         message.record_id = reader.string();
                         break;
                     case "record_size":
-                        reader.value();
                         message.record_size = reader.uint64();
                         break;
                     case "offset":
-                        reader.value();
                         message.offset = reader.int64();
                         break;
                     case "strides":
                         if (!(message.strides && message.strides.length))
                             message.strides = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.strides.push(reader.int64());
@@ -239,16 +234,15 @@
                 return message;
             };
     
-            TensorProto.decodeText = function decodeText(reader, block) {
+            TensorProto.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.TensorProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "dims":
                         if (!(message.dims && message.dims.length))
                             message.dims = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.dims.push(reader.int64());
@@ -258,17 +252,14 @@
                             message.dims.push(reader.int64());
                         break;
                     case "data_type":
-                        reader.value();
                         message.data_type = reader.enum($root.caffe2.TensorProto.DataType);
                         break;
                     case "storage_type":
-                        reader.value();
                         message.storage_type = reader.enum($root.caffe2.TensorProto.StorageType);
                         break;
                     case "float_data":
                         if (!(message.float_data && message.float_data.length))
                             message.float_data = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.float_data.push(reader.float());
@@ -280,7 +271,6 @@
                     case "int32_data":
                         if (!(message.int32_data && message.int32_data.length))
                             message.int32_data = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.int32_data.push(reader.int32());
@@ -290,13 +280,11 @@
                             message.int32_data.push(reader.int32());
                         break;
                     case "byte_data":
-                        reader.value();
                         message.byte_data = reader.bytes();
                         break;
                     case "string_data":
                         if (!(message.string_data && message.string_data.length))
                             message.string_data = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.string_data.push(reader.bytes());
@@ -308,7 +296,6 @@
                     case "double_data":
                         if (!(message.double_data && message.double_data.length))
                             message.double_data = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.double_data.push(reader.double());
@@ -320,7 +307,6 @@
                     case "int64_data":
                         if (!(message.int64_data && message.int64_data.length))
                             message.int64_data = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.int64_data.push(reader.int64());
@@ -330,14 +316,12 @@
                             message.int64_data.push(reader.int64());
                         break;
                     case "raw_data":
-                        reader.value();
                         message.raw_data = reader.bytes();
                         break;
                     case "external_data":
                         message.external_data = $root.caffe2.ExternalDataProto.decodeText(reader, true);
                         break;
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "device_detail":
@@ -418,18 +402,16 @@
                     return message;
                 };
     
-                Segment.decodeText = function decodeText(reader, block) {
+                Segment.decodeText = function decodeText(reader) {
                     var message = new $root.caffe2.TensorProto.Segment();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "begin":
-                            reader.value();
                             message.begin = reader.int64();
                             break;
                         case "end":
-                            reader.value();
                             message.end = reader.int64();
                             break;
                         default:
@@ -455,6 +437,8 @@
             function QTensorProto(properties) {
                 this.dims = [];
                 this.data = [];
+                this.scales = [];
+                this.biases = [];
                 if (properties)
                     for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null)
@@ -469,6 +453,10 @@
             QTensorProto.prototype.data = $util.emptyArray;
             QTensorProto.prototype.name = "";
             QTensorProto.prototype.data_type = 2;
+            QTensorProto.prototype.scales = $util.emptyArray;
+            QTensorProto.prototype.biases = $util.emptyArray;
+            QTensorProto.prototype.axis = 0;
+            QTensorProto.prototype.is_multiparam = false;
     
             QTensorProto.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
@@ -515,6 +503,32 @@
                     case 8:
                         message.data_type = reader.int32();
                         break;
+                    case 9:
+                        if (!(message.scales && message.scales.length))
+                            message.scales = [];
+                        if ((tag & 7) === 2) {
+                            var end2 = reader.uint32() + reader.pos;
+                            while (reader.pos < end2)
+                                message.scales.push(reader.double());
+                        } else
+                            message.scales.push(reader.double());
+                        break;
+                    case 10:
+                        if (!(message.biases && message.biases.length))
+                            message.biases = [];
+                        if ((tag & 7) === 2) {
+                            var end2 = reader.uint32() + reader.pos;
+                            while (reader.pos < end2)
+                                message.biases.push(reader.double());
+                        } else
+                            message.biases.push(reader.double());
+                        break;
+                    case 11:
+                        message.axis = reader.int32();
+                        break;
+                    case 12:
+                        message.is_multiparam = reader.bool();
+                        break;
                     default:
                         reader.skipType(tag & 7);
                         break;
@@ -531,16 +545,15 @@
                 return message;
             };
     
-            QTensorProto.decodeText = function decodeText(reader, block) {
+            QTensorProto.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.QTensorProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "dims":
                         if (!(message.dims && message.dims.length))
                             message.dims = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.dims.push(reader.int64());
@@ -550,25 +563,20 @@
                             message.dims.push(reader.int64());
                         break;
                     case "precision":
-                        reader.value();
                         message.precision = reader.int32();
                         break;
                     case "scale":
-                        reader.value();
                         message.scale = reader.double();
                         break;
                     case "bias":
-                        reader.value();
                         message.bias = reader.double();
                         break;
                     case "is_signed":
-                        reader.value();
                         message.is_signed = reader.bool();
                         break;
                     case "data":
                         if (!(message.data && message.data.length))
                             message.data = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.data.push(reader.int32());
@@ -578,12 +586,38 @@
                             message.data.push(reader.int32());
                         break;
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "data_type":
-                        reader.value();
                         message.data_type = reader.enum($root.caffe2.TensorProto.DataType);
+                        break;
+                    case "scales":
+                        if (!(message.scales && message.scales.length))
+                            message.scales = [];
+                        if (reader.first())
+                            while (!reader.last()) {
+                                message.scales.push(reader.double());
+                                reader.next();
+                            }
+                        else
+                            message.scales.push(reader.double());
+                        break;
+                    case "biases":
+                        if (!(message.biases && message.biases.length))
+                            message.biases = [];
+                        if (reader.first())
+                            while (!reader.last()) {
+                                message.biases.push(reader.double());
+                                reader.next();
+                            }
+                        else
+                            message.biases.push(reader.double());
+                        break;
+                    case "axis":
+                        message.axis = reader.int32();
+                        break;
+                    case "is_multiparam":
+                        message.is_multiparam = reader.bool();
                         break;
                     default:
                         reader.field(tag, message);
@@ -636,10 +670,10 @@
                 return message;
             };
     
-            TensorProtos.decodeText = function decodeText(reader, block) {
+            TensorProtos.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.TensorProtos();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "protos":
@@ -719,16 +753,15 @@
                 return message;
             };
     
-            TensorShape.decodeText = function decodeText(reader, block) {
+            TensorShape.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.TensorShape();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "dims":
                         if (!(message.dims && message.dims.length))
                             message.dims = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.dims.push(reader.int64());
@@ -738,13 +771,11 @@
                             message.dims.push(reader.int64());
                         break;
                     case "data_type":
-                        reader.value();
                         message.data_type = reader.enum($root.caffe2.TensorProto.DataType);
                         break;
                     case "unknown_dims":
                         if (!(message.unknown_dims && message.unknown_dims.length))
                             message.unknown_dims = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.unknown_dims.push(reader.int32());
@@ -754,11 +785,9 @@
                             message.unknown_dims.push(reader.int32());
                         break;
                     case "unknown_shape":
-                        reader.value();
                         message.unknown_shape = reader.bool();
                         break;
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     default:
@@ -804,10 +833,10 @@
                 return message;
             };
     
-            TensorShapes.decodeText = function decodeText(reader, block) {
+            TensorShapes.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.TensorShapes();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "shapes":
@@ -949,26 +978,22 @@
                 return message;
             };
     
-            Argument.decodeText = function decodeText(reader, block) {
+            Argument.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.Argument();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "f":
-                        reader.value();
                         message.f = reader.float();
                         break;
                     case "i":
-                        reader.value();
                         message.i = reader.int64();
                         break;
                     case "s":
-                        reader.value();
                         message.s = reader.bytes();
                         break;
                     case "t":
@@ -980,7 +1005,6 @@
                     case "floats":
                         if (!(message.floats && message.floats.length))
                             message.floats = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.floats.push(reader.float());
@@ -992,7 +1016,6 @@
                     case "ints":
                         if (!(message.ints && message.ints.length))
                             message.ints = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.ints.push(reader.int64());
@@ -1004,7 +1027,6 @@
                     case "strings":
                         if (!(message.strings && message.strings.length))
                             message.strings = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.strings.push(reader.bytes());
@@ -1108,36 +1130,30 @@
                 return message;
             };
     
-            DeviceOption.decodeText = function decodeText(reader, block) {
+            DeviceOption.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.DeviceOption();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "device_type":
-                        reader.value();
                         message.device_type = reader.int32();
                         break;
                     case "device_id":
-                        reader.value();
                         message.device_id = reader.int32();
                         break;
                     case "random_seed":
-                        reader.value();
                         message.random_seed = reader.uint32();
                         break;
                     case "node_name":
-                        reader.value();
                         message.node_name = reader.string();
                         break;
                     case "numa_node_id":
-                        reader.value();
                         message.numa_node_id = reader.int32();
                         break;
                     case "extra_info":
                         if (!(message.extra_info && message.extra_info.length))
                             message.extra_info = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.extra_info.push(reader.string());
@@ -1242,16 +1258,15 @@
                 return message;
             };
     
-            OperatorDef.decodeText = function decodeText(reader, block) {
+            OperatorDef.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.OperatorDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "input":
                         if (!(message.input && message.input.length))
                             message.input = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.input.push(reader.string());
@@ -1263,7 +1278,6 @@
                     case "output":
                         if (!(message.output && message.output.length))
                             message.output = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.output.push(reader.string());
@@ -1273,11 +1287,9 @@
                             message.output.push(reader.string());
                         break;
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "type":
-                        reader.value();
                         message.type = reader.string();
                         break;
                     case "arg":
@@ -1289,13 +1301,11 @@
                         message.device_option = $root.caffe2.DeviceOption.decodeText(reader, true);
                         break;
                     case "engine":
-                        reader.value();
                         message.engine = reader.string();
                         break;
                     case "control_input":
                         if (!(message.control_input && message.control_input.length))
                             message.control_input = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.control_input.push(reader.string());
@@ -1305,19 +1315,15 @@
                             message.control_input.push(reader.string());
                         break;
                     case "is_gradient_op":
-                        reader.value();
                         message.is_gradient_op = reader.bool();
                         break;
                     case "debug_info":
-                        reader.value();
                         message.debug_info = reader.string();
                         break;
                     case "domain":
-                        reader.value();
                         message.domain = reader.string();
                         break;
                     case "op_version":
-                        reader.value();
                         message.op_version = reader.int64();
                         break;
                     default:
@@ -1400,14 +1406,13 @@
                 return message;
             };
     
-            NetDef.decodeText = function decodeText(reader, block) {
+            NetDef.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.NetDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "op":
@@ -1416,11 +1421,9 @@
                         message.op.push($root.caffe2.OperatorDef.decodeText(reader, true));
                         break;
                     case "type":
-                        reader.value();
                         message.type = reader.string();
                         break;
                     case "num_workers":
-                        reader.value();
                         message.num_workers = reader.int32();
                         break;
                     case "device_option":
@@ -1434,7 +1437,6 @@
                     case "external_input":
                         if (!(message.external_input && message.external_input.length))
                             message.external_input = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.external_input.push(reader.string());
@@ -1446,7 +1448,6 @@
                     case "external_output":
                         if (!(message.external_output && message.external_output.length))
                             message.external_output = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.external_output.push(reader.string());
@@ -1549,14 +1550,13 @@
                 return message;
             };
     
-            ExecutionStep.decodeText = function decodeText(reader, block) {
+            ExecutionStep.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.ExecutionStep();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "substep":
@@ -1567,7 +1567,6 @@
                     case "network":
                         if (!(message.network && message.network.length))
                             message.network = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.network.push(reader.string());
@@ -1577,43 +1576,33 @@
                             message.network.push(reader.string());
                         break;
                     case "num_iter":
-                        reader.value();
                         message.num_iter = reader.int64();
                         break;
                     case "criteria_network":
-                        reader.value();
                         message.criteria_network = reader.string();
                         break;
                     case "report_net":
-                        reader.value();
                         message.report_net = reader.string();
                         break;
                     case "report_interval":
-                        reader.value();
                         message.report_interval = reader.int32();
                         break;
                     case "run_every_ms":
-                        reader.value();
                         message.run_every_ms = reader.int64();
                         break;
                     case "concurrent_substeps":
-                        reader.value();
                         message.concurrent_substeps = reader.bool();
                         break;
                     case "should_stop_blob":
-                        reader.value();
                         message.should_stop_blob = reader.string();
                         break;
                     case "only_once":
-                        reader.value();
                         message.only_once = reader.bool();
                         break;
                     case "create_workspace":
-                        reader.value();
                         message.create_workspace = reader.bool();
                         break;
                     case "num_concurrent_instances":
-                        reader.value();
                         message.num_concurrent_instances = reader.int32();
                         break;
                     default:
@@ -1670,14 +1659,13 @@
                 return message;
             };
     
-            PlanDef.decodeText = function decodeText(reader, block) {
+            PlanDef.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.PlanDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "network":
@@ -1754,36 +1742,31 @@
                 return message;
             };
     
-            BlobProto.decodeText = function decodeText(reader, block) {
+            BlobProto.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.BlobProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "type":
-                        reader.value();
                         message.type = reader.string();
                         break;
                     case "tensor":
                         message.tensor = $root.caffe2.TensorProto.decodeText(reader, true);
                         break;
                     case "content":
-                        reader.value();
                         message.content = reader.bytes();
                         break;
                     case "qtensor":
                         message.qtensor = $root.caffe2.QTensorProto.decodeText(reader, true);
                         break;
                     case "content_num_chunks":
-                        reader.value();
                         message.content_num_chunks = reader.int32();
                         break;
                     case "content_chunk_id":
-                        reader.value();
                         message.content_chunk_id = reader.int32();
                         break;
                     default:
@@ -1838,26 +1821,22 @@
                 return message;
             };
     
-            DBReaderProto.decodeText = function decodeText(reader, block) {
+            DBReaderProto.decodeText = function decodeText(reader) {
                 var message = new $root.caffe2.DBReaderProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "source":
-                        reader.value();
                         message.source = reader.string();
                         break;
                     case "db_type":
-                        reader.value();
                         message.db_type = reader.string();
                         break;
                     case "key":
-                        reader.value();
                         message.key = reader.string();
                         break;
                     default:

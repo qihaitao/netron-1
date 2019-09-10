@@ -7,14 +7,15 @@ const electron = require('electron');
 const fs = require('fs');
 const process = require('process');
 const path = require('path');
-const protobuf = require('protobufjs'); // eslint-disable-line no-unused-vars
 const view = require('./view');
+
+global.protobuf = require('protobufjs');
 
 host.ElectronHost = class {
 
     constructor() {
         if (electron.remote.app.isPackaged) {
-            this._telemetry = require('universal-analytics')('UA-54146-13');
+            this._telemetry = require('universal-analytics')('UA-54146-13', electron.remote.getGlobal('global').userId);
         }
 
         this._version = electron.remote.app.getVersion();
@@ -30,7 +31,7 @@ host.ElectronHost = class {
         if (electron.remote.systemPreferences.subscribeNotification) {
             electron.remote.systemPreferences.subscribeNotification('AppleInterfaceThemeChangedNotification', () => this._updateTheme());
         }
-        document.body.style.opacity = 1;
+        this.document.body.style.opacity = 1;
     }
 
     get document() {
@@ -40,10 +41,10 @@ host.ElectronHost = class {
     _updateTheme() {
         if (electron.remote.systemPreferences.isDarkMode &&
             electron.remote.systemPreferences.isDarkMode()) {
-            document.body.classList.add('dark-mode');
+            this.document.body.classList.add('dark-mode');
         }
         else {
-            document.body.classList.remove('dark-mode');
+            this.document.body.classList.remove('dark-mode');
         }
     }
 
@@ -90,22 +91,25 @@ host.ElectronHost = class {
             this._update('show-names', this._view.showNames);
         });
         electron.ipcRenderer.on('zoom-in', () => {
-            document.getElementById('zoom-in-button').click();
+            this.document.getElementById('zoom-in-button').click();
         });
         electron.ipcRenderer.on('zoom-out', () => {
-            document.getElementById('zoom-out-button').click();
+            this.document.getElementById('zoom-out-button').click();
         });
         electron.ipcRenderer.on('reset-zoom', () => {
             this._view.resetZoom();
         });
         electron.ipcRenderer.on('show-properties', () => {
-            document.getElementById('model-properties-button').click();
+            this.document.getElementById('menu-button').click();
         });
         electron.ipcRenderer.on('find', () => {
             this._view.find();
         });
+        this.document.getElementById('menu-button').addEventListener('click', () => {
+            this._view.showModelProperties();
+        });
 
-        var openFileButton = document.getElementById('open-file-button');
+        var openFileButton = this.document.getElementById('open-file-button');
         if (openFileButton) {
             openFileButton.style.opacity = 1;
             openFileButton.addEventListener('click', () => {
@@ -113,13 +117,13 @@ host.ElectronHost = class {
             });
         }
 
-        document.addEventListener('dragover', (e) => {
+        this.document.addEventListener('dragover', (e) => {
             e.preventDefault();
         });
-        document.addEventListener('drop', (e) => {
+        this.document.addEventListener('drop', (e) => {
             e.preventDefault();
         });
-        document.body.addEventListener('drop', (e) => { 
+        this.document.body.addEventListener('drop', (e) => { 
             e.preventDefault();
             var files = [];
             for (var i = 0; i < e.dataTransfer.files.length; i++) {
@@ -149,7 +153,7 @@ host.ElectronHost = class {
             message: message,
             detail: detail,
         };
-        electron.remote.dialog.showMessageBox(owner, options);
+        electron.remote.dialog.showMessageBoxSync(owner, options);
     }
 
     confirm(message, detail) {
@@ -162,16 +166,16 @@ host.ElectronHost = class {
             defaultId: 0,
             cancelId: 1
         };
-        var result = electron.remote.dialog.showMessageBox(owner, options);
+        var result = electron.remote.dialog.showMessageBoxSync(owner, options);
         return result == 0;
     }
 
-    require(id, callback) {
+    require(id) {
         try {
-            callback(null, require(id));
+            return Promise.resolve(require(id));
         }
-        catch (err) {
-            callback(err, null);
+        catch (error) {
+            return Promise.reject(error);
         }
     }
 
@@ -220,22 +224,24 @@ host.ElectronHost = class {
         }
     }
 
-    request(base, file, encoding, callback) {
-        var pathname = path.join(base || __dirname, file);
-        fs.exists(pathname, (exists) => {
-            if (!exists) {
-                callback(new Error('File not found.'), null);
-            }
-            else {
-                fs.readFile(pathname, encoding, (err, data) => {
-                    if (err) {
-                        callback(err, null);
-                    }
-                    else {
-                        callback(null, data);
-                    }
-                });
-            }
+    request(base, file, encoding) {
+        return new Promise((resolve, reject) => {
+            var pathname = path.join(base || __dirname, file);
+            fs.exists(pathname, (exists) => {
+                if (!exists) {
+                    reject(new Error("File not found '" + file + "'."));
+                }
+                else {
+                    fs.readFile(pathname, encoding, (err, data) => {
+                        if (err) {
+                            reject(err);
+                        }
+                        else {
+                            resolve(data);
+                        }
+                    });
+                }
+            });
         });
     }
 
@@ -301,65 +307,52 @@ host.ElectronHost = class {
     _openFile(file) {
         if (file) {
             this._view.show('Spinner');
-            this._readFile(file, (err, buffer) => {
-                if (err) {
-                    this.exception(err, false);
-                    this._view.show(null);
-                    this.error('Error while reading file.', err.message);
-                    this._update('path', null);
-                    return;
-                }
+            this._readFile(file).then((buffer) => {
                 var context = new ElectonContext(this, path.dirname(file), path.basename(file), buffer);
-                this._view.openContext(context, (err, model) => {
+                this._view.open(context).then((model) => {
                     this._view.show(null);
-                    if (err) {
-                        this.exception(err, false);
-                        this.error(err.name, err.message);
-                        this._update('path', null);
-                    }
                     if (model) {
                         this._update('path', file);
                     }
                     this._update('show-attributes', this._view.showAttributes);
                     this._update('show-initializers', this._view.showInitializers);
                     this._update('show-names', this._view.showNames);
+                }).catch((error) => {
+                    if (error) {
+                        this._view.show(null);
+                        this.exception(error, false);
+                        this.error(error.name, error.message);
+                        this._update('path', null);
+                    }
+                    this._update('show-attributes', this._view.showAttributes);
+                    this._update('show-initializers', this._view.showInitializers);
+                    this._update('show-names', this._view.showNames);
                 });
+            }).catch((error) => {
+                this.exception(error, false);
+                this._view.show(null);
+                this.error('Error while reading file.', error.message);
+                this._update('path', null);
             });
         }
     }
 
-    _readFile(file, callback) {
-        fs.exists(file, (exists) => {
-            if (!exists) {
-                callback(new Error('The file \'' + file + '\' does not exist.'), null);
-                return;
-            }
-            fs.stat(file, (err, stats) => {
-                if (err) {
-                    callback(err, null);
-                    return;
+    _readFile(file) {
+        return new Promise((resolve, reject) => {
+            fs.exists(file, (exists) => {
+                if (!exists) {
+                    reject(new Error('The file \'' + file + '\' does not exist.'));
                 }
-                fs.open(file, 'r', (err, fd) => {
-                    if (err) {
-                        callback(err, null);
-                        return;
-                    }
-                    var size = stats.size;
-                    var buffer = new Uint8Array(size);
-                    fs.read(fd, buffer, 0, size, 0, (err, bytesRead, buffer) => {
+                else {
+                    fs.readFile(file, null, (err, buffer) => {
                         if (err) {
-                            callback(err, null);
-                            return;
+                            reject(err);
                         }
-                        fs.close(fd, (err) => {
-                            if (err) {
-                                callback(err, null);
-                                return;
-                            }
-                            callback(null, buffer);
-                        });
+                        else {
+                            resolve(buffer);
+                        }
                     });
-                });
+                }
             });
         });
     }
@@ -378,10 +371,8 @@ class ElectonContext {
         this._buffer = buffer;
     }
 
-    request(file, encoding, callback) {
-        this._host.request(this._folder, file, encoding, (err, buffer) => {
-            callback(err, buffer);
-        });
+    request(file, encoding) {
+        return this._host.request(this._folder, file, encoding);
     }
 
     get identifier() {

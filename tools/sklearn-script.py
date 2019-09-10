@@ -73,6 +73,8 @@ def update_attribute(schema, name, description, type, option, default):
                 attribute['default'] = True
             elif default == 'False':
                 attribute['default'] = False
+            elif default == "'auto'":
+                attribute['default'] = default.strip("'").strip('"')
             else:
                 raise Exception("Unknown boolean default value '" + str(default) + "'.")
         else:

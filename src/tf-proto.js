@@ -46,14 +46,13 @@
                 return message;
             };
     
-            SavedModel.decodeText = function decodeText(reader, block) {
+            SavedModel.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedModel();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "saved_model_schema_version":
-                        reader.value();
                         message.saved_model_schema_version = reader.int64();
                         break;
                     case "meta_graphs":
@@ -140,10 +139,10 @@
                 return message;
             };
     
-            MetaGraphDef.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.MetaGraphDef(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            MetaGraphDef.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.MetaGraphDef(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "meta_info_def":
@@ -156,26 +155,38 @@
                         message.saver_def = $root.tensorflow.SaverDef.decodeText(reader, true);
                         break;
                     case "collection_def":
-                        reader.assert("{");
                         if (message.collection_def === $util.emptyObject)
                             message.collection_def = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.collection_def[key] = $root.tensorflow.CollectionDef.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.CollectionDef.decodeText(reader, true);
+                                break;
+                            }
+                        message.collection_def[key] = value;
                         break;
                     case "signature_def":
-                        reader.assert("{");
                         if (message.signature_def === $util.emptyObject)
                             message.signature_def = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.signature_def[key] = $root.tensorflow.SignatureDef.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.SignatureDef.decodeText(reader, true);
+                                break;
+                            }
+                        message.signature_def[key] = value;
                         break;
                     case "asset_file_def":
                         if (!(message.asset_file_def && message.asset_file_def.length))
@@ -249,14 +260,13 @@
                     return message;
                 };
     
-                MetaInfoDef.decodeText = function decodeText(reader, block) {
+                MetaInfoDef.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.MetaGraphDef.MetaInfoDef();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "meta_graph_version":
-                            reader.value();
                             message.meta_graph_version = reader.string();
                             break;
                         case "stripped_op_list":
@@ -268,7 +278,6 @@
                         case "tags":
                             if (!(message.tags && message.tags.length))
                                 message.tags = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.tags.push(reader.string());
@@ -278,15 +287,12 @@
                                 message.tags.push(reader.string());
                             break;
                         case "tensorflow_version":
-                            reader.value();
                             message.tensorflow_version = reader.string();
                             break;
                         case "tensorflow_git_version":
-                            reader.value();
                             message.tensorflow_git_version = reader.string();
                             break;
                         case "stripped_default_attrs":
-                            reader.value();
                             message.stripped_default_attrs = reader.bool();
                             break;
                         default:
@@ -355,10 +361,10 @@
                 return message;
             };
     
-            CollectionDef.decodeText = function decodeText(reader, block) {
+            CollectionDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.CollectionDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "node_list":
@@ -416,16 +422,15 @@
                     return message;
                 };
     
-                NodeList.decodeText = function decodeText(reader, block) {
+                NodeList.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.CollectionDef.NodeList();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "value":
                             if (!(message.value && message.value.length))
                                 message.value = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.value.push(reader.string());
@@ -477,16 +482,15 @@
                     return message;
                 };
     
-                BytesList.decodeText = function decodeText(reader, block) {
+                BytesList.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.CollectionDef.BytesList();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "value":
                             if (!(message.value && message.value.length))
                                 message.value = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.value.push(reader.bytes());
@@ -543,16 +547,15 @@
                     return message;
                 };
     
-                Int64List.decodeText = function decodeText(reader, block) {
+                Int64List.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.CollectionDef.Int64List();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "value":
                             if (!(message.value && message.value.length))
                                 message.value = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.value.push(reader.int64());
@@ -609,16 +612,15 @@
                     return message;
                 };
     
-                FloatList.decodeText = function decodeText(reader, block) {
+                FloatList.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.CollectionDef.FloatList();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "value":
                             if (!(message.value && message.value.length))
                                 message.value = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.value.push(reader.float());
@@ -670,10 +672,10 @@
                     return message;
                 };
     
-                AnyList.decodeText = function decodeText(reader, block) {
+                AnyList.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.CollectionDef.AnyList();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "value":
@@ -706,13 +708,14 @@
     
             TensorInfo.prototype.name = "";
             TensorInfo.prototype.coo_sparse = null;
+            TensorInfo.prototype.composite_tensor = null;
             TensorInfo.prototype.dtype = 0;
             TensorInfo.prototype.tensor_shape = null;
     
             var $oneOfFields;
     
             Object.defineProperty(TensorInfo.prototype, "encoding", {
-                get: $util.oneOfGetter($oneOfFields = ["name", "coo_sparse"]),
+                get: $util.oneOfGetter($oneOfFields = ["name", "coo_sparse", "composite_tensor"]),
                 set: $util.oneOfSetter($oneOfFields)
             });
     
@@ -729,6 +732,9 @@
                     case 4:
                         message.coo_sparse = $root.tensorflow.TensorInfo.CooSparse.decode(reader, reader.uint32());
                         break;
+                    case 5:
+                        message.composite_tensor = $root.tensorflow.TensorInfo.CompositeTensor.decode(reader, reader.uint32());
+                        break;
                     case 2:
                         message.dtype = reader.int32();
                         break;
@@ -743,21 +749,22 @@
                 return message;
             };
     
-            TensorInfo.decodeText = function decodeText(reader, block) {
+            TensorInfo.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.TensorInfo();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "coo_sparse":
                         message.coo_sparse = $root.tensorflow.TensorInfo.CooSparse.decodeText(reader, true);
                         break;
+                    case "composite_tensor":
+                        message.composite_tensor = $root.tensorflow.TensorInfo.CompositeTensor.decodeText(reader, true);
+                        break;
                     case "dtype":
-                        reader.value();
                         message.dtype = reader.enum($root.tensorflow.DataType);
                         break;
                     case "tensor_shape":
@@ -808,22 +815,19 @@
                     return message;
                 };
     
-                CooSparse.decodeText = function decodeText(reader, block) {
+                CooSparse.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.TensorInfo.CooSparse();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "values_tensor_name":
-                            reader.value();
                             message.values_tensor_name = reader.string();
                             break;
                         case "indices_tensor_name":
-                            reader.value();
                             message.indices_tensor_name = reader.string();
                             break;
                         case "dense_shape_tensor_name":
-                            reader.value();
                             message.dense_shape_tensor_name = reader.string();
                             break;
                         default:
@@ -835,6 +839,67 @@
                 };
     
                 return CooSparse;
+            })();
+    
+            TensorInfo.CompositeTensor = (function() {
+    
+                function CompositeTensor(properties) {
+                    this.components = [];
+                    if (properties)
+                        for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                            if (properties[keys[i]] != null)
+                                this[keys[i]] = properties[keys[i]];
+                }
+    
+                CompositeTensor.prototype.type_spec = null;
+                CompositeTensor.prototype.components = $util.emptyArray;
+    
+                CompositeTensor.decode = function decode(reader, length) {
+                    if (!(reader instanceof $Reader))
+                        reader = $Reader.create(reader);
+                    var end = length === undefined ? reader.len : reader.pos + length, message = new $root.tensorflow.TensorInfo.CompositeTensor();
+                    while (reader.pos < end) {
+                        var tag = reader.uint32();
+                        switch (tag >>> 3) {
+                        case 1:
+                            message.type_spec = $root.tensorflow.TypeSpecProto.decode(reader, reader.uint32());
+                            break;
+                        case 2:
+                            if (!(message.components && message.components.length))
+                                message.components = [];
+                            message.components.push($root.tensorflow.TensorInfo.decode(reader, reader.uint32()));
+                            break;
+                        default:
+                            reader.skipType(tag & 7);
+                            break;
+                        }
+                    }
+                    return message;
+                };
+    
+                CompositeTensor.decodeText = function decodeText(reader) {
+                    var message = new $root.tensorflow.TensorInfo.CompositeTensor();
+                    reader.start();
+                    while (!reader.end()) {
+                        var tag = reader.tag();
+                        switch (tag) {
+                        case "type_spec":
+                            message.type_spec = $root.tensorflow.TypeSpecProto.decodeText(reader, true);
+                            break;
+                        case "components":
+                            if (!(message.components && message.components.length))
+                                message.components = [];
+                            message.components.push($root.tensorflow.TensorInfo.decodeText(reader, true));
+                            break;
+                        default:
+                            reader.field(tag, message);
+                            break;
+                        }
+                    }
+                    return message;
+                };
+    
+                return CompositeTensor;
             })();
     
             return TensorInfo;
@@ -889,36 +954,47 @@
                 return message;
             };
     
-            SignatureDef.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.SignatureDef(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            SignatureDef.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.SignatureDef(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "inputs":
-                        reader.assert("{");
                         if (message.inputs === $util.emptyObject)
                             message.inputs = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.inputs[key] = $root.tensorflow.TensorInfo.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.TensorInfo.decodeText(reader, true);
+                                break;
+                            }
+                        message.inputs[key] = value;
                         break;
                     case "outputs":
-                        reader.assert("{");
                         if (message.outputs === $util.emptyObject)
                             message.outputs = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.outputs[key] = $root.tensorflow.TensorInfo.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.TensorInfo.decodeText(reader, true);
+                                break;
+                            }
+                        message.outputs[key] = value;
                         break;
                     case "method_name":
-                        reader.value();
                         message.method_name = reader.string();
                         break;
                     default:
@@ -965,17 +1041,16 @@
                 return message;
             };
     
-            AssetFileDef.decodeText = function decodeText(reader, block) {
+            AssetFileDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.AssetFileDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "tensor_info":
                         message.tensor_info = $root.tensorflow.TensorInfo.decodeText(reader, true);
                         break;
                     case "filename":
-                        reader.value();
                         message.filename = reader.string();
                         break;
                     default:
@@ -1042,38 +1117,31 @@
                 return message;
             };
     
-            SaverDef.decodeText = function decodeText(reader, block) {
+            SaverDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SaverDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "filename_tensor_name":
-                        reader.value();
                         message.filename_tensor_name = reader.string();
                         break;
                     case "save_tensor_name":
-                        reader.value();
                         message.save_tensor_name = reader.string();
                         break;
                     case "restore_op_name":
-                        reader.value();
                         message.restore_op_name = reader.string();
                         break;
                     case "max_to_keep":
-                        reader.value();
                         message.max_to_keep = reader.int32();
                         break;
                     case "sharded":
-                        reader.value();
                         message.sharded = reader.bool();
                         break;
                     case "keep_checkpoint_every_n_hours":
-                        reader.value();
                         message.keep_checkpoint_every_n_hours = reader.float();
                         break;
                     case "version":
-                        reader.value();
                         message.version = reader.enum($root.tensorflow.SaverDef.CheckpointFormatVersion);
                         break;
                     default:
@@ -1139,10 +1207,10 @@
                 return message;
             };
     
-            GraphDef.decodeText = function decodeText(reader, block) {
+            GraphDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.GraphDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "node":
@@ -1154,7 +1222,6 @@
                         message.versions = $root.tensorflow.VersionDef.decodeText(reader, true);
                         break;
                     case "version":
-                        reader.value();
                         message.version = reader.int32();
                         break;
                     case "library":
@@ -1256,14 +1323,13 @@
                 return message;
             };
     
-            OpDef.decodeText = function decodeText(reader, block) {
+            OpDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.OpDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "input_arg":
@@ -1279,7 +1345,6 @@
                     case "control_output":
                         if (!(message.control_output && message.control_output.length))
                             message.control_output = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.control_output.push(reader.string());
@@ -1297,27 +1362,21 @@
                         message.deprecation = $root.tensorflow.OpDeprecation.decodeText(reader, true);
                         break;
                     case "summary":
-                        reader.value();
                         message.summary = reader.string();
                         break;
                     case "description":
-                        reader.value();
                         message.description = reader.string();
                         break;
                     case "is_commutative":
-                        reader.value();
                         message.is_commutative = reader.bool();
                         break;
                     case "is_aggregate":
-                        reader.value();
                         message.is_aggregate = reader.bool();
                         break;
                     case "is_stateful":
-                        reader.value();
                         message.is_stateful = reader.bool();
                         break;
                     case "allows_uninitialized_input":
-                        reader.value();
                         message.allows_uninitialized_input = reader.bool();
                         break;
                     default:
@@ -1381,38 +1440,31 @@
                     return message;
                 };
     
-                ArgDef.decodeText = function decodeText(reader, block) {
+                ArgDef.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.OpDef.ArgDef();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "name":
-                            reader.value();
                             message.name = reader.string();
                             break;
                         case "description":
-                            reader.value();
                             message.description = reader.string();
                             break;
                         case "type":
-                            reader.value();
                             message.type = reader.enum($root.tensorflow.DataType);
                             break;
                         case "type_attr":
-                            reader.value();
                             message.type_attr = reader.string();
                             break;
                         case "number_attr":
-                            reader.value();
                             message.number_attr = reader.string();
                             break;
                         case "type_list_attr":
-                            reader.value();
                             message.type_list_attr = reader.string();
                             break;
                         case "is_ref":
-                            reader.value();
                             message.is_ref = reader.bool();
                             break;
                         default:
@@ -1479,33 +1531,28 @@
                     return message;
                 };
     
-                AttrDef.decodeText = function decodeText(reader, block) {
+                AttrDef.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.OpDef.AttrDef();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "name":
-                            reader.value();
                             message.name = reader.string();
                             break;
                         case "type":
-                            reader.value();
                             message.type = reader.string();
                             break;
                         case "default_value":
                             message.default_value = $root.tensorflow.AttrValue.decodeText(reader, true);
                             break;
                         case "description":
-                            reader.value();
                             message.description = reader.string();
                             break;
                         case "has_minimum":
-                            reader.value();
                             message.has_minimum = reader.bool();
                             break;
                         case "minimum":
-                            reader.value();
                             message.minimum = reader.int64();
                             break;
                         case "allowed_values":
@@ -1558,18 +1605,16 @@
                 return message;
             };
     
-            OpDeprecation.decodeText = function decodeText(reader, block) {
+            OpDeprecation.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.OpDeprecation();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "version":
-                        reader.value();
                         message.version = reader.int32();
                         break;
                     case "explanation":
-                        reader.value();
                         message.explanation = reader.string();
                         break;
                     default:
@@ -1615,10 +1660,10 @@
                 return message;
             };
     
-            OpList.decodeText = function decodeText(reader, block) {
+            OpList.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.OpList();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "op":
@@ -1673,10 +1718,10 @@
                 return message;
             };
     
-            TensorShapeProto.decodeText = function decodeText(reader, block) {
+            TensorShapeProto.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.TensorShapeProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "dim":
@@ -1685,7 +1730,6 @@
                         message.dim.push($root.tensorflow.TensorShapeProto.Dim.decodeText(reader, true));
                         break;
                     case "unknown_rank":
-                        reader.value();
                         message.unknown_rank = reader.bool();
                         break;
                     default:
@@ -1729,18 +1773,16 @@
                     return message;
                 };
     
-                Dim.decodeText = function decodeText(reader, block) {
+                Dim.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.TensorShapeProto.Dim();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "size":
-                            reader.value();
                             message.size = reader.int64();
                             break;
                         case "name":
-                            reader.value();
                             message.name = reader.string();
                             break;
                         default:
@@ -1867,24 +1909,21 @@
                 return message;
             };
     
-            NodeDef.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.NodeDef(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            NodeDef.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.NodeDef(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "op":
-                        reader.value();
                         message.op = reader.string();
                         break;
                     case "input":
                         if (!(message.input && message.input.length))
                             message.input = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.input.push(reader.string());
@@ -1894,19 +1933,24 @@
                             message.input.push(reader.string());
                         break;
                     case "device":
-                        reader.value();
                         message.device = reader.string();
                         break;
                     case "attr":
-                        reader.assert("{");
                         if (message.attr === $util.emptyObject)
                             message.attr = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.attr[key] = $root.tensorflow.AttrValue.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.AttrValue.decodeText(reader, true);
+                                break;
+                            }
+                        message.attr[key] = value;
                         break;
                     case "experimental_debug_info":
                         message.experimental_debug_info = $root.tensorflow.NodeDef.ExperimentalDebugInfo.decodeText(reader, true);
@@ -1923,6 +1967,7 @@
     
                 function ExperimentalDebugInfo(properties) {
                     this.original_node_names = [];
+                    this.original_func_names = [];
                     if (properties)
                         for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                             if (properties[keys[i]] != null)
@@ -1930,6 +1975,7 @@
                 }
     
                 ExperimentalDebugInfo.prototype.original_node_names = $util.emptyArray;
+                ExperimentalDebugInfo.prototype.original_func_names = $util.emptyArray;
     
                 ExperimentalDebugInfo.decode = function decode(reader, length) {
                     if (!(reader instanceof $Reader))
@@ -1943,6 +1989,11 @@
                                 message.original_node_names = [];
                             message.original_node_names.push(reader.string());
                             break;
+                        case 2:
+                            if (!(message.original_func_names && message.original_func_names.length))
+                                message.original_func_names = [];
+                            message.original_func_names.push(reader.string());
+                            break;
                         default:
                             reader.skipType(tag & 7);
                             break;
@@ -1951,16 +2002,15 @@
                     return message;
                 };
     
-                ExperimentalDebugInfo.decodeText = function decodeText(reader, block) {
+                ExperimentalDebugInfo.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.NodeDef.ExperimentalDebugInfo();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "original_node_names":
                             if (!(message.original_node_names && message.original_node_names.length))
                                 message.original_node_names = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.original_node_names.push(reader.string());
@@ -1968,6 +2018,17 @@
                                 }
                             else
                                 message.original_node_names.push(reader.string());
+                            break;
+                        case "original_func_names":
+                            if (!(message.original_func_names && message.original_func_names.length))
+                                message.original_func_names = [];
+                            if (reader.first())
+                                while (!reader.last()) {
+                                    message.original_func_names.push(reader.string());
+                                    reader.next();
+                                }
+                            else
+                                message.original_func_names.push(reader.string());
                             break;
                         default:
                             reader.field(tag, message);
@@ -2028,24 +2089,21 @@
                 return message;
             };
     
-            VersionDef.decodeText = function decodeText(reader, block) {
+            VersionDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.VersionDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "producer":
-                        reader.value();
                         message.producer = reader.int32();
                         break;
                     case "min_consumer":
-                        reader.value();
                         message.min_consumer = reader.int32();
                         break;
                     case "bad_consumers":
                         if (!(message.bad_consumers && message.bad_consumers.length))
                             message.bad_consumers = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.bad_consumers.push(reader.int32());
@@ -2104,10 +2162,10 @@
                 return message;
             };
     
-            FunctionDefLibrary.decodeText = function decodeText(reader, block) {
+            FunctionDefLibrary.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.FunctionDefLibrary();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "function":
@@ -2207,36 +2265,48 @@
                 return message;
             };
     
-            FunctionDef.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.FunctionDef(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            FunctionDef.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.FunctionDef(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "signature":
                         message.signature = $root.tensorflow.OpDef.decodeText(reader, true);
                         break;
                     case "attr":
-                        reader.assert("{");
                         if (message.attr === $util.emptyObject)
                             message.attr = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.attr[key] = $root.tensorflow.AttrValue.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.AttrValue.decodeText(reader, true);
+                                break;
+                            }
+                        message.attr[key] = value;
                         break;
                     case "arg_attr":
-                        reader.assert("{");
                         if (message.arg_attr === $util.emptyObject)
                             message.arg_attr = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.uint32();
-                        reader.assert("value");
-                        message.arg_attr[key] = $root.tensorflow.FunctionDef.ArgAttrs.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = 0;
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.uint32();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.FunctionDef.ArgAttrs.decodeText(reader, true);
+                                break;
+                            }
+                        message.arg_attr[key] = value;
                         break;
                     case "node_def":
                         if (!(message.node_def && message.node_def.length))
@@ -2244,28 +2314,38 @@
                         message.node_def.push($root.tensorflow.NodeDef.decodeText(reader, true));
                         break;
                     case "ret":
-                        reader.assert("{");
                         if (message.ret === $util.emptyObject)
                             message.ret = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        reader.value();
-                        message.ret[key] = reader.string();
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = "";
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = reader.string();
+                                break;
+                            }
+                        message.ret[key] = value;
                         break;
                     case "control_ret":
-                        reader.assert("{");
                         if (message.control_ret === $util.emptyObject)
                             message.control_ret = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        reader.value();
-                        message.control_ret[key] = reader.string();
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = "";
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = reader.string();
+                                break;
+                            }
+                        message.control_ret[key] = value;
                         break;
                     default:
                         reader.field(tag, message);
@@ -2310,22 +2390,28 @@
                     return message;
                 };
     
-                ArgAttrs.decodeText = function decodeText(reader, block) {
-                    var message = new $root.tensorflow.FunctionDef.ArgAttrs(), key;
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                ArgAttrs.decodeText = function decodeText(reader) {
+                    var message = new $root.tensorflow.FunctionDef.ArgAttrs(), key, value;
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "attr":
-                            reader.assert("{");
                             if (message.attr === $util.emptyObject)
                                 message.attr = {};
-                            reader.assert("key");
-                            reader.value();
-                            key = reader.string();
-                            reader.assert("value");
-                            message.attr[key] = $root.tensorflow.AttrValue.decodeText(reader, true);
-                            reader.assert("}");
+                            reader.start();
+                            key = "";
+                            value = null;
+                            while (!reader.end())
+                                switch (reader.tag()) {
+                                case "key":
+                                    key = reader.string();
+                                    break;
+                                case "value":
+                                    value = $root.tensorflow.AttrValue.decodeText(reader, true);
+                                    break;
+                                }
+                            message.attr[key] = value;
                             break;
                         default:
                             reader.field(tag, message);
@@ -2374,18 +2460,16 @@
                 return message;
             };
     
-            GradientDef.decodeText = function decodeText(reader, block) {
+            GradientDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.GradientDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "function_name":
-                        reader.value();
                         message.function_name = reader.string();
                         break;
                     case "gradient_func":
-                        reader.value();
                         message.gradient_func = reader.string();
                         break;
                     default:
@@ -2471,30 +2555,25 @@
                 return message;
             };
     
-            AttrValue.decodeText = function decodeText(reader, block) {
+            AttrValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.AttrValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "s":
-                        reader.value();
                         message.s = reader.bytes();
                         break;
                     case "i":
-                        reader.value();
                         message.i = reader.int64();
                         break;
                     case "f":
-                        reader.value();
                         message.f = reader.float();
                         break;
                     case "b":
-                        reader.value();
                         message.b = reader.bool();
                         break;
                     case "type":
-                        reader.value();
                         message.type = reader.enum($root.tensorflow.DataType);
                         break;
                     case "shape":
@@ -2510,7 +2589,6 @@
                         message.func = $root.tensorflow.NameAttrList.decodeText(reader, true);
                         break;
                     case "placeholder":
-                        reader.value();
                         message.placeholder = reader.string();
                         break;
                     default:
@@ -2622,16 +2700,15 @@
                     return message;
                 };
     
-                ListValue.decodeText = function decodeText(reader, block) {
+                ListValue.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.AttrValue.ListValue();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "s":
                             if (!(message.s && message.s.length))
                                 message.s = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.s.push(reader.bytes());
@@ -2643,7 +2720,6 @@
                         case "i":
                             if (!(message.i && message.i.length))
                                 message.i = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.i.push(reader.int64());
@@ -2655,7 +2731,6 @@
                         case "f":
                             if (!(message.f && message.f.length))
                                 message.f = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.f.push(reader.float());
@@ -2667,7 +2742,6 @@
                         case "b":
                             if (!(message.b && message.b.length))
                                 message.b = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.b.push(reader.bool());
@@ -2679,7 +2753,6 @@
                         case "type":
                             if (!(message.type && message.type.length))
                                 message.type = [];
-                            reader.value();
                             if (reader.first())
                                 while (!reader.last()) {
                                     message.type.push(reader.enum($root.tensorflow.DataType));
@@ -2756,26 +2829,31 @@
                 return message;
             };
     
-            NameAttrList.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.NameAttrList(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            NameAttrList.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.NameAttrList(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "attr":
-                        reader.assert("{");
                         if (message.attr === $util.emptyObject)
                             message.attr = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.attr[key] = $root.tensorflow.AttrValue.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.AttrValue.decodeText(reader, true);
+                                break;
+                            }
+                        message.attr[key] = value;
                         break;
                     default:
                         reader.field(tag, message);
@@ -2970,31 +3048,27 @@
                 return message;
             };
     
-            TensorProto.decodeText = function decodeText(reader, block) {
+            TensorProto.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.TensorProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "dtype":
-                        reader.value();
                         message.dtype = reader.enum($root.tensorflow.DataType);
                         break;
                     case "tensor_shape":
                         message.tensor_shape = $root.tensorflow.TensorShapeProto.decodeText(reader, true);
                         break;
                     case "version_number":
-                        reader.value();
                         message.version_number = reader.int32();
                         break;
                     case "tensor_content":
-                        reader.value();
                         message.tensor_content = reader.bytes();
                         break;
                     case "half_val":
                         if (!(message.half_val && message.half_val.length))
                             message.half_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.half_val.push(reader.int32());
@@ -3006,7 +3080,6 @@
                     case "float_val":
                         if (!(message.float_val && message.float_val.length))
                             message.float_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.float_val.push(reader.float());
@@ -3018,7 +3091,6 @@
                     case "double_val":
                         if (!(message.double_val && message.double_val.length))
                             message.double_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.double_val.push(reader.double());
@@ -3030,7 +3102,6 @@
                     case "int_val":
                         if (!(message.int_val && message.int_val.length))
                             message.int_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.int_val.push(reader.int32());
@@ -3042,7 +3113,6 @@
                     case "string_val":
                         if (!(message.string_val && message.string_val.length))
                             message.string_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.string_val.push(reader.bytes());
@@ -3054,7 +3124,6 @@
                     case "scomplex_val":
                         if (!(message.scomplex_val && message.scomplex_val.length))
                             message.scomplex_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.scomplex_val.push(reader.float());
@@ -3066,7 +3135,6 @@
                     case "int64_val":
                         if (!(message.int64_val && message.int64_val.length))
                             message.int64_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.int64_val.push(reader.int64());
@@ -3078,7 +3146,6 @@
                     case "bool_val":
                         if (!(message.bool_val && message.bool_val.length))
                             message.bool_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.bool_val.push(reader.bool());
@@ -3090,7 +3157,6 @@
                     case "dcomplex_val":
                         if (!(message.dcomplex_val && message.dcomplex_val.length))
                             message.dcomplex_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.dcomplex_val.push(reader.double());
@@ -3112,7 +3178,6 @@
                     case "uint32_val":
                         if (!(message.uint32_val && message.uint32_val.length))
                             message.uint32_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.uint32_val.push(reader.uint32());
@@ -3124,7 +3189,6 @@
                     case "uint64_val":
                         if (!(message.uint64_val && message.uint64_val.length))
                             message.uint64_val = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.uint64_val.push(reader.uint64());
@@ -3184,18 +3248,16 @@
                 return message;
             };
     
-            VariantTensorDataProto.decodeText = function decodeText(reader, block) {
+            VariantTensorDataProto.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.VariantTensorDataProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "type_name":
-                        reader.value();
                         message.type_name = reader.string();
                         break;
                     case "metadata":
-                        reader.value();
                         message.metadata = reader.bytes();
                         break;
                     case "tensors":
@@ -3293,45 +3355,37 @@
                 return message;
             };
     
-            VariableDef.decodeText = function decodeText(reader, block) {
+            VariableDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.VariableDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "variable_name":
-                        reader.value();
                         message.variable_name = reader.string();
                         break;
                     case "initial_value_name":
-                        reader.value();
                         message.initial_value_name = reader.string();
                         break;
                     case "initializer_name":
-                        reader.value();
                         message.initializer_name = reader.string();
                         break;
                     case "snapshot_name":
-                        reader.value();
                         message.snapshot_name = reader.string();
                         break;
                     case "save_slice_info_def":
                         message.save_slice_info_def = $root.tensorflow.SaveSliceInfoDef.decodeText(reader, true);
                         break;
                     case "is_resource":
-                        reader.value();
                         message.is_resource = reader.bool();
                         break;
                     case "trainable":
-                        reader.value();
                         message.trainable = reader.bool();
                         break;
                     case "synchronization":
-                        reader.value();
                         message.synchronization = reader.enum($root.tensorflow.VariableSynchronization);
                         break;
                     case "aggregation":
-                        reader.value();
                         message.aggregation = reader.enum($root.tensorflow.VariableAggregation);
                         break;
                     default:
@@ -3410,20 +3464,18 @@
                 return message;
             };
     
-            SaveSliceInfoDef.decodeText = function decodeText(reader, block) {
+            SaveSliceInfoDef.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SaveSliceInfoDef();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "full_name":
-                        reader.value();
                         message.full_name = reader.string();
                         break;
                     case "full_shape":
                         if (!(message.full_shape && message.full_shape.length))
                             message.full_shape = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.full_shape.push(reader.int64());
@@ -3435,7 +3487,6 @@
                     case "var_offset":
                         if (!(message.var_offset && message.var_offset.length))
                             message.var_offset = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.var_offset.push(reader.int64());
@@ -3447,7 +3498,6 @@
                     case "var_shape":
                         if (!(message.var_shape && message.var_shape.length))
                             message.var_shape = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.var_shape.push(reader.int64());
@@ -3470,6 +3520,7 @@
         tensorflow.ResourceHandleProto = (function() {
     
             function ResourceHandleProto(properties) {
+                this.dtypes_and_shapes = [];
                 if (properties)
                     for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null)
@@ -3481,6 +3532,7 @@
             ResourceHandleProto.prototype.name = "";
             ResourceHandleProto.prototype.hash_code = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
             ResourceHandleProto.prototype.maybe_type_name = "";
+            ResourceHandleProto.prototype.dtypes_and_shapes = $util.emptyArray;
     
             ResourceHandleProto.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
@@ -3504,6 +3556,11 @@
                     case 5:
                         message.maybe_type_name = reader.string();
                         break;
+                    case 6:
+                        if (!(message.dtypes_and_shapes && message.dtypes_and_shapes.length))
+                            message.dtypes_and_shapes = [];
+                        message.dtypes_and_shapes.push($root.tensorflow.ResourceHandleProto.DtypeAndShape.decode(reader, reader.uint32()));
+                        break;
                     default:
                         reader.skipType(tag & 7);
                         break;
@@ -3512,31 +3569,31 @@
                 return message;
             };
     
-            ResourceHandleProto.decodeText = function decodeText(reader, block) {
+            ResourceHandleProto.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.ResourceHandleProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "device":
-                        reader.value();
                         message.device = reader.string();
                         break;
                     case "container":
-                        reader.value();
                         message.container = reader.string();
                         break;
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "hash_code":
-                        reader.value();
                         message.hash_code = reader.uint64();
                         break;
                     case "maybe_type_name":
-                        reader.value();
                         message.maybe_type_name = reader.string();
+                        break;
+                    case "dtypes_and_shapes":
+                        if (!(message.dtypes_and_shapes && message.dtypes_and_shapes.length))
+                            message.dtypes_and_shapes = [];
+                        message.dtypes_and_shapes.push($root.tensorflow.ResourceHandleProto.DtypeAndShape.decodeText(reader, true));
                         break;
                     default:
                         reader.field(tag, message);
@@ -3545,6 +3602,62 @@
                 }
                 return message;
             };
+    
+            ResourceHandleProto.DtypeAndShape = (function() {
+    
+                function DtypeAndShape(properties) {
+                    if (properties)
+                        for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                            if (properties[keys[i]] != null)
+                                this[keys[i]] = properties[keys[i]];
+                }
+    
+                DtypeAndShape.prototype.dtype = 0;
+                DtypeAndShape.prototype.shape = null;
+    
+                DtypeAndShape.decode = function decode(reader, length) {
+                    if (!(reader instanceof $Reader))
+                        reader = $Reader.create(reader);
+                    var end = length === undefined ? reader.len : reader.pos + length, message = new $root.tensorflow.ResourceHandleProto.DtypeAndShape();
+                    while (reader.pos < end) {
+                        var tag = reader.uint32();
+                        switch (tag >>> 3) {
+                        case 1:
+                            message.dtype = reader.int32();
+                            break;
+                        case 2:
+                            message.shape = $root.tensorflow.TensorShapeProto.decode(reader, reader.uint32());
+                            break;
+                        default:
+                            reader.skipType(tag & 7);
+                            break;
+                        }
+                    }
+                    return message;
+                };
+    
+                DtypeAndShape.decodeText = function decodeText(reader) {
+                    var message = new $root.tensorflow.ResourceHandleProto.DtypeAndShape();
+                    reader.start();
+                    while (!reader.end()) {
+                        var tag = reader.tag();
+                        switch (tag) {
+                        case "dtype":
+                            message.dtype = reader.enum($root.tensorflow.DataType);
+                            break;
+                        case "shape":
+                            message.shape = $root.tensorflow.TensorShapeProto.decodeText(reader, true);
+                            break;
+                        default:
+                            reader.field(tag, message);
+                            break;
+                        }
+                    }
+                    return message;
+                };
+    
+                return DtypeAndShape;
+            })();
     
             return ResourceHandleProto;
         })();
@@ -3591,10 +3704,10 @@
                 return message;
             };
     
-            SavedObjectGraph.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.SavedObjectGraph(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            SavedObjectGraph.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.SavedObjectGraph(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "nodes":
@@ -3603,15 +3716,21 @@
                         message.nodes.push($root.tensorflow.SavedObject.decodeText(reader, true));
                         break;
                     case "concrete_functions":
-                        reader.assert("{");
                         if (message.concrete_functions === $util.emptyObject)
                             message.concrete_functions = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.concrete_functions[key] = $root.tensorflow.SavedConcreteFunction.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.SavedConcreteFunction.decodeText(reader, true);
+                                break;
+                            }
+                        message.concrete_functions[key] = value;
                         break;
                     default:
                         reader.field(tag, message);
@@ -3698,10 +3817,10 @@
                 return message;
             };
     
-            SavedObject.decodeText = function decodeText(reader, block) {
+            SavedObject.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedObject();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "children":
@@ -3757,6 +3876,7 @@
     
             SavedUserObject.prototype.identifier = "";
             SavedUserObject.prototype.version = null;
+            SavedUserObject.prototype.metadata = "";
     
             SavedUserObject.decode = function decode(reader, length) {
                 if (!(reader instanceof $Reader))
@@ -3771,6 +3891,9 @@
                     case 2:
                         message.version = $root.tensorflow.VersionDef.decode(reader, reader.uint32());
                         break;
+                    case 3:
+                        message.metadata = reader.string();
+                        break;
                     default:
                         reader.skipType(tag & 7);
                         break;
@@ -3779,18 +3902,20 @@
                 return message;
             };
     
-            SavedUserObject.decodeText = function decodeText(reader, block) {
+            SavedUserObject.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedUserObject();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "identifier":
-                        reader.value();
                         message.identifier = reader.string();
                         break;
                     case "version":
                         message.version = $root.tensorflow.VersionDef.decodeText(reader, true);
+                        break;
+                    case "metadata":
+                        message.metadata = reader.string();
                         break;
                     default:
                         reader.field(tag, message);
@@ -3832,14 +3957,13 @@
                 return message;
             };
     
-            SavedAsset.decodeText = function decodeText(reader, block) {
+            SavedAsset.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedAsset();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "asset_file_def_index":
-                        reader.value();
                         message.asset_file_def_index = reader.int32();
                         break;
                     default:
@@ -3889,16 +4013,15 @@
                 return message;
             };
     
-            SavedFunction.decodeText = function decodeText(reader, block) {
+            SavedFunction.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedFunction();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "concrete_functions":
                         if (!(message.concrete_functions && message.concrete_functions.length))
                             message.concrete_functions = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.concrete_functions.push(reader.string());
@@ -3966,16 +4089,15 @@
                 return message;
             };
     
-            SavedConcreteFunction.decodeText = function decodeText(reader, block) {
+            SavedConcreteFunction.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedConcreteFunction();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "bound_inputs":
                         if (!(message.bound_inputs && message.bound_inputs.length))
                             message.bound_inputs = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.bound_inputs.push(reader.int32());
@@ -4041,20 +4163,18 @@
                 return message;
             };
     
-            SavedBareConcreteFunction.decodeText = function decodeText(reader, block) {
+            SavedBareConcreteFunction.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedBareConcreteFunction();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "concrete_function_name":
-                        reader.value();
                         message.concrete_function_name = reader.string();
                         break;
                     case "argument_keywords":
                         if (!(message.argument_keywords && message.argument_keywords.length))
                             message.argument_keywords = [];
-                        reader.value();
                         if (reader.first())
                             while (!reader.last()) {
                                 message.argument_keywords.push(reader.string());
@@ -4064,7 +4184,6 @@
                             message.argument_keywords.push(reader.string());
                         break;
                     case "allowed_positional_arguments":
-                        reader.value();
                         message.allowed_positional_arguments = reader.int64();
                         break;
                     default:
@@ -4107,14 +4226,13 @@
                 return message;
             };
     
-            SavedConstant.decodeText = function decodeText(reader, block) {
+            SavedConstant.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedConstant();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "operation":
-                        reader.value();
                         message.operation = reader.string();
                         break;
                     default:
@@ -4177,33 +4295,28 @@
                 return message;
             };
     
-            SavedVariable.decodeText = function decodeText(reader, block) {
+            SavedVariable.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedVariable();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "dtype":
-                        reader.value();
                         message.dtype = reader.enum($root.tensorflow.DataType);
                         break;
                     case "shape":
                         message.shape = $root.tensorflow.TensorShapeProto.decodeText(reader, true);
                         break;
                     case "trainable":
-                        reader.value();
                         message.trainable = reader.bool();
                         break;
                     case "synchronization":
-                        reader.value();
                         message.synchronization = reader.enum($root.tensorflow.VariableSynchronization);
                         break;
                     case "aggregation":
-                        reader.value();
                         message.aggregation = reader.enum($root.tensorflow.VariableAggregation);
                         break;
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     default:
@@ -4254,17 +4367,16 @@
                 return message;
             };
     
-            FunctionSpec.decodeText = function decodeText(reader, block) {
+            FunctionSpec.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.FunctionSpec();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "fullargspec":
                         message.fullargspec = $root.tensorflow.StructuredValue.decodeText(reader, true);
                         break;
                     case "is_method":
-                        reader.value();
                         message.is_method = reader.bool();
                         break;
                     case "input_signature":
@@ -4310,14 +4422,13 @@
                 return message;
             };
     
-            SavedResource.decodeText = function decodeText(reader, block) {
+            SavedResource.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.SavedResource();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "device":
-                        reader.value();
                         message.device = reader.string();
                         break;
                     default:
@@ -4363,10 +4474,10 @@
                 return message;
             };
     
-            TrackableObjectGraph.decodeText = function decodeText(reader, block) {
+            TrackableObjectGraph.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.TrackableObjectGraph();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "nodes":
@@ -4428,10 +4539,10 @@
                     return message;
                 };
     
-                TrackableObject.decodeText = function decodeText(reader, block) {
+                TrackableObject.decodeText = function decodeText(reader) {
                     var message = new $root.tensorflow.TrackableObjectGraph.TrackableObject();
-                    reader.start(block);
-                    while (!reader.end(block)) {
+                    reader.start();
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "children":
@@ -4490,18 +4601,16 @@
                         return message;
                     };
     
-                    ObjectReference.decodeText = function decodeText(reader, block) {
+                    ObjectReference.decodeText = function decodeText(reader) {
                         var message = new $root.tensorflow.TrackableObjectGraph.TrackableObject.ObjectReference();
-                        reader.start(block);
-                        while (!reader.end(block)) {
+                        reader.start();
+                        while (!reader.end()) {
                             var tag = reader.tag();
                             switch (tag) {
                             case "node_id":
-                                reader.value();
                                 message.node_id = reader.int32();
                                 break;
                             case "local_name":
-                                reader.value();
                                 message.local_name = reader.string();
                                 break;
                             default:
@@ -4556,26 +4665,22 @@
                         return message;
                     };
     
-                    SerializedTensor.decodeText = function decodeText(reader, block) {
+                    SerializedTensor.decodeText = function decodeText(reader) {
                         var message = new $root.tensorflow.TrackableObjectGraph.TrackableObject.SerializedTensor();
-                        reader.start(block);
-                        while (!reader.end(block)) {
+                        reader.start();
+                        while (!reader.end()) {
                             var tag = reader.tag();
                             switch (tag) {
                             case "name":
-                                reader.value();
                                 message.name = reader.string();
                                 break;
                             case "full_name":
-                                reader.value();
                                 message.full_name = reader.string();
                                 break;
                             case "checkpoint_key":
-                                reader.value();
                                 message.checkpoint_key = reader.string();
                                 break;
                             case "optional_restore":
-                                reader.value();
                                 message.optional_restore = reader.bool();
                                 break;
                             default:
@@ -4626,22 +4731,19 @@
                         return message;
                     };
     
-                    SlotVariableReference.decodeText = function decodeText(reader, block) {
+                    SlotVariableReference.decodeText = function decodeText(reader) {
                         var message = new $root.tensorflow.TrackableObjectGraph.TrackableObject.SlotVariableReference();
-                        reader.start(block);
-                        while (!reader.end(block)) {
+                        reader.start();
+                        while (!reader.end()) {
                             var tag = reader.tag();
                             switch (tag) {
                             case "original_variable_node_id":
-                                reader.value();
                                 message.original_variable_node_id = reader.int32();
                                 break;
                             case "slot_name":
-                                reader.value();
                                 message.slot_name = reader.string();
                                 break;
                             case "slot_variable_node_id":
-                                reader.value();
                                 message.slot_variable_node_id = reader.int32();
                                 break;
                             default:
@@ -4678,6 +4780,7 @@
             StructuredValue.prototype.tensor_shape_value = null;
             StructuredValue.prototype.tensor_dtype_value = 0;
             StructuredValue.prototype.tensor_spec_value = null;
+            StructuredValue.prototype.type_spec_value = null;
             StructuredValue.prototype.list_value = null;
             StructuredValue.prototype.tuple_value = null;
             StructuredValue.prototype.dict_value = null;
@@ -4686,7 +4789,7 @@
             var $oneOfFields;
     
             Object.defineProperty(StructuredValue.prototype, "kind", {
-                get: $util.oneOfGetter($oneOfFields = ["none_value", "float64_value", "int64_value", "string_value", "bool_value", "tensor_shape_value", "tensor_dtype_value", "tensor_spec_value", "list_value", "tuple_value", "dict_value", "named_tuple_value"]),
+                get: $util.oneOfGetter($oneOfFields = ["none_value", "float64_value", "int64_value", "string_value", "bool_value", "tensor_shape_value", "tensor_dtype_value", "tensor_spec_value", "type_spec_value", "list_value", "tuple_value", "dict_value", "named_tuple_value"]),
                 set: $util.oneOfSetter($oneOfFields)
             });
     
@@ -4721,6 +4824,9 @@
                     case 33:
                         message.tensor_spec_value = $root.tensorflow.TensorSpecProto.decode(reader, reader.uint32());
                         break;
+                    case 34:
+                        message.type_spec_value = $root.tensorflow.TypeSpecProto.decode(reader, reader.uint32());
+                        break;
                     case 51:
                         message.list_value = $root.tensorflow.ListValue.decode(reader, reader.uint32());
                         break;
@@ -4741,40 +4847,38 @@
                 return message;
             };
     
-            StructuredValue.decodeText = function decodeText(reader, block) {
+            StructuredValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.StructuredValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "none_value":
                         message.none_value = $root.tensorflow.NoneValue.decodeText(reader, true);
                         break;
                     case "float64_value":
-                        reader.value();
                         message.float64_value = reader.double();
                         break;
                     case "int64_value":
-                        reader.value();
                         message.int64_value = reader.sint64();
                         break;
                     case "string_value":
-                        reader.value();
                         message.string_value = reader.string();
                         break;
                     case "bool_value":
-                        reader.value();
                         message.bool_value = reader.bool();
                         break;
                     case "tensor_shape_value":
                         message.tensor_shape_value = $root.tensorflow.TensorShapeProto.decodeText(reader, true);
                         break;
                     case "tensor_dtype_value":
-                        reader.value();
                         message.tensor_dtype_value = reader.enum($root.tensorflow.DataType);
                         break;
                     case "tensor_spec_value":
                         message.tensor_spec_value = $root.tensorflow.TensorSpecProto.decodeText(reader, true);
+                        break;
+                    case "type_spec_value":
+                        message.type_spec_value = $root.tensorflow.TypeSpecProto.decodeText(reader, true);
                         break;
                     case "list_value":
                         message.list_value = $root.tensorflow.ListValue.decodeText(reader, true);
@@ -4823,10 +4927,10 @@
                 return message;
             };
     
-            NoneValue.decodeText = function decodeText(reader, block) {
+            NoneValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.NoneValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     default:
@@ -4872,10 +4976,10 @@
                 return message;
             };
     
-            ListValue.decodeText = function decodeText(reader, block) {
+            ListValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.ListValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "values":
@@ -4926,10 +5030,10 @@
                 return message;
             };
     
-            TupleValue.decodeText = function decodeText(reader, block) {
+            TupleValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.TupleValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "values":
@@ -4983,22 +5087,28 @@
                 return message;
             };
     
-            DictValue.decodeText = function decodeText(reader, block) {
-                var message = new $root.tensorflow.DictValue(), key;
-                reader.start(block);
-                while (!reader.end(block)) {
+            DictValue.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.DictValue(), key, value;
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "fields":
-                        reader.assert("{");
                         if (message.fields === $util.emptyObject)
                             message.fields = {};
-                        reader.assert("key");
-                        reader.value();
-                        key = reader.string();
-                        reader.assert("value");
-                        message.fields[key] = $root.tensorflow.StructuredValue.decodeText(reader, true);
-                        reader.assert("}");
+                        reader.start();
+                        key = "";
+                        value = null;
+                        while (!reader.end())
+                            switch (reader.tag()) {
+                            case "key":
+                                key = reader.string();
+                                break;
+                            case "value":
+                                value = $root.tensorflow.StructuredValue.decodeText(reader, true);
+                                break;
+                            }
+                        message.fields[key] = value;
                         break;
                     default:
                         reader.field(tag, message);
@@ -5044,14 +5154,13 @@
                 return message;
             };
     
-            PairValue.decodeText = function decodeText(reader, block) {
+            PairValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.PairValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "key":
-                        reader.value();
                         message.key = reader.string();
                         break;
                     case "value":
@@ -5104,14 +5213,13 @@
                 return message;
             };
     
-            NamedTupleValue.decodeText = function decodeText(reader, block) {
+            NamedTupleValue.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.NamedTupleValue();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "values":
@@ -5167,21 +5275,19 @@
                 return message;
             };
     
-            TensorSpecProto.decodeText = function decodeText(reader, block) {
+            TensorSpecProto.decodeText = function decodeText(reader) {
                 var message = new $root.tensorflow.TensorSpecProto();
-                reader.start(block);
-                while (!reader.end(block)) {
+                reader.start();
+                while (!reader.end()) {
                     var tag = reader.tag();
                     switch (tag) {
                     case "name":
-                        reader.value();
                         message.name = reader.string();
                         break;
                     case "shape":
                         message.shape = $root.tensorflow.TensorShapeProto.decodeText(reader, true);
                         break;
                     case "dtype":
-                        reader.value();
                         message.dtype = reader.enum($root.tensorflow.DataType);
                         break;
                     default:
@@ -5193,6 +5299,83 @@
             };
     
             return TensorSpecProto;
+        })();
+    
+        tensorflow.TypeSpecProto = (function() {
+    
+            function TypeSpecProto(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+    
+            TypeSpecProto.prototype.type_spec_class = 0;
+            TypeSpecProto.prototype.type_state = null;
+            TypeSpecProto.prototype.type_spec_class_name = "";
+    
+            TypeSpecProto.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.tensorflow.TypeSpecProto();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.type_spec_class = reader.int32();
+                        break;
+                    case 2:
+                        message.type_state = $root.tensorflow.StructuredValue.decode(reader, reader.uint32());
+                        break;
+                    case 3:
+                        message.type_spec_class_name = reader.string();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+    
+            TypeSpecProto.decodeText = function decodeText(reader) {
+                var message = new $root.tensorflow.TypeSpecProto();
+                reader.start();
+                while (!reader.end()) {
+                    var tag = reader.tag();
+                    switch (tag) {
+                    case "type_spec_class":
+                        message.type_spec_class = reader.enum($root.tensorflow.TypeSpecProto.TypeSpecClass);
+                        break;
+                    case "type_state":
+                        message.type_state = $root.tensorflow.StructuredValue.decodeText(reader, true);
+                        break;
+                    case "type_spec_class_name":
+                        message.type_spec_class_name = reader.string();
+                        break;
+                    default:
+                        reader.field(tag, message);
+                        break;
+                    }
+                }
+                return message;
+            };
+    
+            TypeSpecProto.TypeSpecClass = (function() {
+                var valuesById = {}, values = Object.create(valuesById);
+                values[valuesById[0] = "UNKNOWN"] = 0;
+                values[valuesById[1] = "SPARSE_TENSOR_SPEC"] = 1;
+                values[valuesById[2] = "INDEXED_SLICES_SPEC"] = 2;
+                values[valuesById[3] = "RAGGED_TENSOR_SPEC"] = 3;
+                values[valuesById[4] = "TENSOR_ARRAY_SPEC"] = 4;
+                values[valuesById[5] = "DATA_DATASET_SPEC"] = 5;
+                values[valuesById[6] = "DATA_ITERATOR_SPEC"] = 6;
+                values[valuesById[7] = "OPTIONAL_SPEC"] = 7;
+                values[valuesById[8] = "PER_REPLICA_SPEC"] = 8;
+                return values;
+            })();
+    
+            return TypeSpecProto;
         })();
     
         return tensorflow;
@@ -5239,20 +5422,18 @@
                     return message;
                 };
     
-                Any.decodeText = function decodeText(reader, block) {
+                Any.decodeText = function decodeText(reader) {
                     var message = new $root.google.protobuf.Any();
-                    reader.start(block);
+                    reader.start();
                     if (reader.any(message))
                         return message;
-                    while (!reader.end(block)) {
+                    while (!reader.end()) {
                         var tag = reader.tag();
                         switch (tag) {
                         case "type_url":
-                            reader.value();
                             message.type_url = reader.string();
                             break;
                         case "value":
-                            reader.value();
                             message.value = reader.bytes();
                             break;
                         default:

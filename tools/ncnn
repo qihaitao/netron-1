@@ -3,12 +3,11 @@
 set -e
 
 root=$(cd $(dirname ${0})/..; pwd)
-node_modules=${root}/node_modules
 src=${root}/src
 third_party=${root}/third_party
 tools=${root}/tools
 
-identifier=torch
+identifier=ncnn
 
 bold() {
     echo "$(tty -s && tput bold)$1$(tty -s && tput sgr0)" 
@@ -26,13 +25,13 @@ git_sync() {
 }
 
 clean() {
-    bold "torch clean"
+    bold "ncnn clean"
     rm -rf ${third_party}/${identifier}
 }
 
 sync() {
-    bold "torch sync"
-    git_sync torch https://github.com/torch/torch7.git
+    bold "ncnn sync"
+    git_sync ncnn https://github.com/Tencent/ncnn.git
 }
 
 while [ "$#" != 0 ]; do
@@ -40,5 +39,6 @@ while [ "$#" != 0 ]; do
     case "${command}" in
         "clean") clean;;
         "sync") sync;;
+        "metadata") metadata;;
     esac
 done

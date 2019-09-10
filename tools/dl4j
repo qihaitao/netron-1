@@ -8,7 +8,7 @@ src=${root}/src
 third_party=${root}/third_party
 tools=${root}/tools
 
-identifier=torch
+identifier=dl4j
 
 bold() {
     echo "$(tty -s && tput bold)$1$(tty -s && tput sgr0)" 
@@ -26,13 +26,13 @@ git_sync() {
 }
 
 clean() {
-    bold "torch clean"
+    bold "deeplearning4j clean"
     rm -rf ${third_party}/${identifier}
 }
 
 sync() {
-    bold "torch sync"
-    git_sync torch https://github.com/torch/torch7.git
+    bold "deeplearning4j sync"
+    git_sync dl4j https://github.com/eclipse/deeplearning4j.git
 }
 
 while [ "$#" != 0 ]; do

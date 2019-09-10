@@ -3,7 +3,6 @@
 
 var view = view || {};
 
-var long = long || { Long: require('long') };
 var zip = zip || require('./zip');
 var gzip = gzip || require('./gzip');
 var tar = tar || require('./tar');
@@ -31,9 +30,6 @@ view.View = class {
         this._modelFactoryService = new view.ModelFactoryService(this._host);
         this._host.document.documentElement.style.overflow = 'hidden';
         this._host.document.body.scroll = 'no';
-        this._host.document.getElementById('model-properties-button').addEventListener('click', () => {
-            this.showModelProperties();
-        });
         this._host.document.getElementById('zoom-in-button').addEventListener('click', () => {
             this.zoomIn();
         });
@@ -41,10 +37,10 @@ view.View = class {
             this.zoomOut();
         });
         this._host.document.getElementById('toolbar').addEventListener('mousewheel', (e) => {
-            this.preventZoom(e);
+            this._preventZoom(e);
         });
         this._host.document.getElementById('sidebar').addEventListener('mousewheel', (e) => {
-            this.preventZoom(e);
+            this._preventZoom(e);
         });
         this._host.document.addEventListener('keydown', () => {
             this.clearSelection();
@@ -53,9 +49,21 @@ view.View = class {
             this._host.document.getElementById('graph-container').addEventListener('mousewheel', (e) => {
                 this._mouseWheelHandler(e);
             });
-            this._host.document.getElementById('graph').addEventListener('mousewheel', (e) => {
-                this._mouseWheelHandler(e);
+            this._host.document.getElementById('graph-container').addEventListener('scroll', (e) => {
+                this._scrollHandler(e);
             });
+            this._host.document.getElementById('graph-container').addEventListener('gesturestart', (e) => {
+                e.preventDefault();
+                this._gestureStartZoom = this._zoom;
+            }, false);
+            this._host.document.getElementById('graph-container').addEventListener('gesturechange', (e) => {
+                e.preventDefault();
+                this._updateZoom(this._gestureStartZoom * e.scale, e);
+            }, false);
+            this._host.document.getElementById('graph-container').addEventListener('gestureend', (e) => {
+                e.preventDefault();
+                this._updateZoom(this._gestureStartZoom * e.scale, e);
+            }, false);
         }
     }
     
@@ -128,7 +136,7 @@ view.View = class {
         if (this._activeGraph) {
             this.clearSelection();
             var graphElement = document.getElementById('graph');
-            var view = new sidebar.FindSidebar(graphElement, this._activeGraph);
+            var view = new sidebar.FindSidebar(this._host, graphElement, this._activeGraph);
             view.on('search-text-changed', (sender, text) => {
                 this._searchText = text;
             });
@@ -170,23 +178,25 @@ view.View = class {
 
     _reload() {
         this.show('Spinner');
-        this.updateGraph(this._model, this._activeGraph, (err) => {
-            if (err) {
-                this.error('Graph update failed.', err);
-            }
+        if (this._model && this._activeGraph) {
+            this._updateGraph(this._model, this._activeGraph).catch((error) => {
+                if (error) {
+                    this.error('Graph update failed.', error);
+                }
+            });
+        }
+    }
+
+    _timeout(time) {
+        return new Promise((resolve) => {
+            setTimeout(() => { resolve(); }, time);
         });
     }
 
     zoomIn() {
         switch (this._host.environment('zoom')) {
             case 'scroll':
-                if (this._zoom) {
-                    this._zoom = this._zoom * 1.05;
-                    if (this._zoom > 2) {
-                        this._zoom = 2;
-                    }
-                    this.applyZoom();
-                }
+                this._updateZoom(this._zoom * 1.05);
                 break;
             case 'd3':
                 if (this._zoom) {
@@ -199,13 +209,7 @@ view.View = class {
     zoomOut() {
         switch (this._host.environment('zoom')) {
             case 'scroll':
-                if (this._zoom) {
-                    this._zoom = this._zoom * 0.95;
-                    if (this._zoom < 0.1) {
-                        this._zoom = 0.1;
-                    }
-                    this.applyZoom();
-                }
+                this._updateZoom(this._zoom * 0.95);
                 break;
             case 'd3':
                 if (this._zoom) {
@@ -218,10 +222,7 @@ view.View = class {
     resetZoom() { 
         switch (this._host.environment('zoom')) {
             case 'scroll':
-                if (this._zoom) {
-                    this._zoom = 1;
-                    this.applyZoom();
-                }
+                this._updateZoom(1);
                 break;
             case 'd3':
                 if (this._zoom) {
@@ -231,45 +232,61 @@ view.View = class {
         }
     }
 
-    preventZoom(e) {
+    _preventZoom(e) {
         if (e.shiftKey || e.ctrlKey) {
             e.preventDefault();
         }
     }
 
-    applyZoom() {
-        var svgElement = this._host.document.getElementById('graph');
-        svgElement.setAttribute('style', 'zoom: ' + this._zoom + ';');
-        // svgElement.setAttribute('style', 'transform: scale(' + this._zoom + ',' + this._zoom + ')');
-        // svgElement.setAttribute('width', this._width * this._zoom);
-        // svgElement.setAttribute('height', this._height * this._zoom);
+    _updateZoom(zoom, e) {
+
+        var container = this._host.document.getElementById('graph-container');
+
+        var min = Math.min(Math.max(container.clientHeight / this._height, 0.2), 1);
+
+        zoom = Math.min(zoom, 2);
+        zoom = Math.max(min, zoom);
+
+        var scrollLeft = this._scrollLeft || container.scrollLeft;
+        var scrollTop = this._scrollTop || container.scrollTop;
+
+        var x = e ? e.pageX : (container.clientWidth / 2);
+        var y = e ? e.pageY : (container.clientHeight / 2);
+
+        x += scrollLeft;
+        y += scrollTop;
+
+        var graph = this._host.document.getElementById('graph');
+        graph.style.width = zoom * this._width;
+        graph.style.height = zoom * this._height
+
+        this._scrollLeft = ((x * zoom) / this._zoom) - (x - scrollLeft);
+        this._scrollTop = ((y * zoom) / this._zoom) - (y - scrollTop);
+        this._scrollLeft = Math.max(0, this._scrollLeft);
+        this._scrollTop = Math.max(0, this._scrollTop);
+        container.scrollLeft = this._scrollLeft;
+        container.scrollTop = this._scrollTop;
+
+        this._zoom = zoom;
     }
 
     _mouseWheelHandler(e) {
         if (e.shiftKey || e.ctrlKey) {
-            if (this._zoom) {
-                // var oldWidth = this._width * this._zoom;
-                // var oldHeight = this._height * this._zoom;
-                this._zoom = this._zoom + (e.wheelDelta * 1.0 / 6000.0);
-                if (this._zoom < 0.1) { this._zoom = 0.1; }
-                if (this._zoom > 2) { this._zoom = 2; }
-                this.applyZoom();
-
-                /* var svgElement = document.getElementById('graph');
-                va r newWidth = this._width * this._zoom;
-                var newHeight = this._height * this._zoom;
-                svgElement.setAttribute('width', newWidth);
-                svgElement.setAttribute('height', newHeight); */
-
-                // var dx = (oldWidth - newWidth) / 2;
-                // var dy = (oldHeight - newHeight) / 2;
-                // window.scrollBy(dx, dy);
-
-                e.preventDefault();
-            }
+            this._updateZoom(this._zoom + (e.wheelDelta * 1.0 / 4000.0), e);
+            e.preventDefault();
         }
     }
-    
+
+    _scrollHandler(e) {
+
+        if (this._scrollLeft && e.target.scrollLeft !== Math.floor(this._scrollLeft)) {
+            delete this._scrollLeft;
+        }
+        if (this._scrollTop && e.target.scrollTop !== Math.floor(this._scrollTop)) {
+            delete this._scrollTop;
+        }
+    }
+
     select(selection) {
         this.clearSelection();
         if (selection && selection.length > 0) {
@@ -315,98 +332,74 @@ view.View = class {
         return this._modelFactoryService.accept(file);
     }
 
-    openContext(context, callback) {
+    open(context) {
         this._host.event('Model', 'Open', 'Size', context.buffer.length);
         this._sidebar.close();
-        setTimeout(() => {
-            this._modelFactoryService.open(context, (err, model) => {
-                if (err) {
-                    callback(err);
+        return this._timeout(2).then(() => {
+            return this._modelFactoryService.open(context).then((model) => {
+                var format = model.format;
+                if (format) {
+                    format = format + (model.producer ? ' (' + model.producer + ')' : '');
+                    this._host.event('Model', 'Format', format);
                 }
-                else {
-                    var format = model.format;
-                    if (format) {
-                        format = format + (model.producer ? ' (' + model.producer + ')' : '');
-                        this._host.event('Model', 'Format', format);
-                    }
-
-                    setTimeout(() => {
-                        try {
-                            var graph = model.graphs.length > 0 ? model.graphs[0] : null;
-                            this.updateGraph(model, graph, (err, model) => {
-                                callback(err, model);
-                            });
-                        }
-                        catch (err) {
-                            callback(err, null);
-                            return;
-                        }
-                    }, 20);
-                }
+                return this._timeout(20).then(() => {
+                    var graph = model.graphs.length > 0 ? model.graphs[0] : null;
+                    return this._updateGraph(model, graph);
+                });
             });
-        }, 2);
+        });
     }
 
-    updateActiveGraph(name) {
+    _updateActiveGraph(name) {
         this._sidebar.close();
         if (this._model) {
             var model = this._model;
             var graph = model.graphs.filter(graph => name == graph.name).shift();
             if (graph) {
                 this.show('Spinner');
-                setTimeout(() => {
-                    this.updateGraph(model, graph, (err /*, model */) => {
-                        if (err) {
-                            this.error('Graph update failed.', err);
+                this._timeout(200).then(() => {
+                    return this._updateGraph(model, graph).catch((error) => {
+                        if (error) {
+                            this.error('Graph update failed.', error);
                         }
                     });
-                }, 200);
+                });
             }
         }
     }
 
-    updateGraph(model, graph, callback) {
-        setTimeout(() => {
+    _updateGraph(model, graph) {
+        return this._timeout(100).then(() => {
             if (graph && graph != this._activeGraph) {
                 var nodes = graph.nodes;
                 if (nodes.length > 1400) {
                     if (!this._host.confirm('Large model detected.', 'This graph contains a large number of nodes and might take a long time to render. Do you want to continue?')) {
                         this._host.event('Graph', 'Render', 'Skip', nodes.length);
                         this.show(null);
-                        callback(null, null);
-                        return;
+                        return null;
                     }  
                 }
             }
-
-            this.renderGraph(graph, (err) => {
-                if (err) {
-                    this.renderGraph(this._activeGraph, (nestedError) => {
-                        if (nestedError) {
-                            this._model = null;
-                            this._activeGraph = null;
-                            this.show('Welcome');
-                        }
-                        else {
-                            this.show('Graph');
-                        }
-                        callback(err, this._model);
-                    });
-                }
-                else {
-                    this._model = model;
-                    this._activeGraph = graph;
+            return this.renderGraph(graph).then(() => {
+                this._model = model;
+                this._activeGraph = graph;
+                this.show('Graph');
+                return this._model;
+            }).catch((error) => {
+                this.renderGraph(this._activeGraph).then(() => {
                     this.show('Graph');
-                    callback(null, this._model);
-                }
+                    throw error;
+                }).catch(() => {
+                    throw error;
+                });
             });
-        }, 100);
+        });
     }
 
-    renderGraph(graph, callback) {
+    renderGraph(graph) {
         try {
             if (!graph) {
-                callback(null);
+                return Promise.resolve();
             }
             else {
                 var graphElement = this._host.document.getElementById('graph');
@@ -468,7 +461,7 @@ view.View = class {
 
                 var input;
                 var output;
-                var connection;
+                var argument;
                 var tuple;
 
                 var self = this;
@@ -500,10 +493,11 @@ view.View = class {
                         var hiddenInitializers = false;
                         if (self._showInitializers) {
                             for (var input of node.inputs) {
-                                if (input.visible && input.connections.length == 1 && input.connections[0].initializer != null) {
+                                if (input.visible && input.arguments.length == 1 && input.arguments[0].initializer != null) {
                                     initializers.push(input);
                                 }
-                                if (!input.visible && input.connections.some((connection) => connection.initializer != null)) {
+                                if ((!input.visible || input.arguments.length > 1) && 
+                                    input.arguments.some((argument) => argument.initializer != null)) {
                                     hiddenInitializers = true;
                                 }
                             }
@@ -518,28 +512,34 @@ view.View = class {
                                 self.showNodeProperties(node);
                             };
                             for (var initializer of initializers) {
-                                var connection = initializer.connections[0];
-                                var type = connection.type;
+                                var argument = initializer.arguments[0];
+                                var type = argument.type;
                                 var shape = '';
                                 var separator = '';
-                                if (type && type.shape && type.shape.dimensions && type.shape.dimensions.hasOwnProperty('length')) {
-                                    shape = '\u3008' + type.shape.dimensions.join('\u00D7') + '\u3009';
-                                    if (type.shape.dimensions.length == 0 && connection.initializer) {
-                                        shape = connection.initializer.toString();
+                                if (type &&
+                                    type.shape && 
+                                    type.shape.dimensions && 
+                                    Object.prototype.hasOwnProperty.call(type.shape.dimensions, 'length')) {
+                                    shape = '\u3008' + type.shape.dimensions.map((d) => d ? d : '?').join('\u00D7') + '\u3009';
+                                    if (type.shape.dimensions.length == 0 && argument.initializer && !argument.initializer.state) {
+                                        shape = argument.initializer.toString();
+                                        if (shape && shape.length > 10) {
+                                            shape = shape.substring(0, 10) + '\u2026';
+                                        }
                                         separator = ' = ';
                                     }
                                 }
-                                block.add('initializer-' + connection.id, initializer.name, shape, type ? type.toString() : '', separator);
+                                block.add('initializer-' + argument.id, initializer.name, shape, type ? type.toString() : '', separator);
                             }
                             if (hiddenInitializers) {
-                                block.add(null, '\u3008' + '...' + '\u3009', '', null, '');
+                                block.add(null, '\u3008' + '\u2026' + '\u3009', '', null, '');
                             }
 
                             for (var attribute of attributes) {
                                 if (attribute.visible) {
-                                    var attributeValue = view.View.formatAttributeValue(attribute.value, attribute.type);
+                                    var attributeValue = sidebar.NodeSidebar.formatAttributeValue(attribute.value, attribute.type);
                                     if (attributeValue && attributeValue.length > 25) {
-                                        attributeValue = attributeValue.substring(0, 25) + '...';
+                                        attributeValue = attributeValue.substring(0, 25) + '\u2026';
                                     }
                                     block.add(null, attribute.name, attributeValue, attribute.type, ' = ');
                                 }
@@ -549,12 +549,12 @@ view.View = class {
                         if (edges) {
                             var inputs = node.inputs;
                             for (input of inputs) {
-                                for (connection of input.connections) {
-                                    if (connection.id != '' && !connection.initializer) {
-                                        var tuple = edgeMap[connection.id];
+                                for (argument of input.arguments) {
+                                    if (argument.id != '' && !argument.initializer) {
+                                        var tuple = edgeMap[argument.id];
                                         if (!tuple) {
                                             tuple = { from: null, to: [] };
-                                            edgeMap[connection.id] = tuple;
+                                            edgeMap[argument.id] = tuple;
                                         }
                                         tuple.to.push({ 
                                             node: nodeId, 
@@ -571,17 +571,17 @@ view.View = class {
                                 }
                             }
                             for (output of outputs) {
-                                for (connection of output.connections) {
-                                    if (connection.id != '') {
-                                        tuple = edgeMap[connection.id];
+                                for (argument of output.arguments) {
+                                    if (argument.id != '') {
+                                        tuple = edgeMap[argument.id];
                                         if (!tuple) {
                                             tuple = { from: null, to: [] };
-                                            edgeMap[connection.id] = tuple;
+                                            edgeMap[argument.id] = tuple;
                                         }
                                         tuple.from = { 
                                             node: nodeId,
                                             name: output.name,
-                                            type: connection.type
+                                            type: argument.type
                                         };
                                     }
                                 }
@@ -640,11 +640,11 @@ view.View = class {
                     if (groups) {
                         var groupName = node.group;
                         if (groupName && groupName.length > 0) {
-                            if (!clusterParentMap.hasOwnProperty(groupName)) {
+                            if (!Object.prototype.hasOwnProperty.call(clusterParentMap, groupName)) {
                                 var lastIndex = groupName.lastIndexOf('/');
                                 if (lastIndex != -1) {
                                     groupName = groupName.substring(0, lastIndex);
-                                    if (!clusterParentMap.hasOwnProperty(groupName)) {
+                                    if (!Object.prototype.hasOwnProperty.call(clusterParentMap, groupName)) {
                                         groupName = null;
                                     }
                                 }
@@ -663,18 +663,18 @@ view.View = class {
                 }
 
                 for (input of graph.inputs) {
-                    for (connection of input.connections) {
-                        tuple = edgeMap[connection.id];
+                    for (argument of input.arguments) {
+                        tuple = edgeMap[argument.id];
                         if (!tuple) {
                             tuple = { from: null, to: [] };
-                            edgeMap[connection.id] = tuple;
+                            edgeMap[argument.id] = tuple;
                         }
                         tuple.from = { 
                             node: nodeId,
-                            type: connection.type
+                            type: argument.type
                         };
                     }
-                    var types = input.connections.map(connection => connection.type || '').join('\n');
+                    var types = input.arguments.map((argument) => argument.type || '').join('\n');
                     var inputName = input.name || '';
                     if (inputName.length > 16) {
                         inputName = inputName.split('/').pop();
@@ -689,15 +689,15 @@ view.View = class {
                 }
             
                 for (output of graph.outputs) {
-                    for (connection of output.connections) {
-                        tuple = edgeMap[connection.id];
+                    for (argument of output.arguments) {
+                        tuple = edgeMap[argument.id];
                         if (!tuple) {
                             tuple = { from: null, to: [] };
-                            edgeMap[connection.id] = tuple;
+                            edgeMap[argument.id] = tuple;
                         }
                         tuple.to.push({ node: nodeId });
                     }
-                    var outputTypes = output.connections.map(connection => connection.type || '').join('\n');
+                    var outputTypes = output.arguments.map((argument) => argument.type || '').join('\n');
                     var outputName = output.name || '';
                     if (outputName.length > 16) {
                         outputName = outputName.split('/').pop();
@@ -722,7 +722,7 @@ view.View = class {
                             }
             
                             if (this._showNames) {
-                                text = edge.split('\n').shift(); // custom connection id
+                                text = edge.split('\n').shift(); // custom argument id
                             }
     
                             if (to.controlDependency) {
@@ -752,7 +752,6 @@ view.View = class {
                 graphElement.appendChild(originElement);
             
                 if (this._host.environment('zoom') == 'd3') {
-                    // Set up zoom support
                     var svg = d3.select(graphElement);
                     this._zoom = d3.zoom();
                     this._zoom(svg);
@@ -763,74 +762,70 @@ view.View = class {
                     this._zoom.transform(svg, d3.zoomIdentity);
                 }
 
-                setTimeout(() => {
-                    try {
-                        var graphRenderer = new grapher.Renderer(this._host.document, originElement);
-                        graphRenderer.render(g);
+                return this._timeout(20).then(() => {
 
-                        var inputElements = graphElement.getElementsByClassName('graph-input');
+                    var graphRenderer = new grapher.Renderer(this._host.document, originElement);
+                    graphRenderer.render(g);
 
-                        switch (this._host.environment('zoom')) {
-                            case 'scroll':
-                                var size = graphElement.getBBox();
-                                var graphMin = Math.min(size.width, size.height);
-                                var windowMin = Math.min(window.innerWidth, window.innerHeight);
-                                var delta = (Math.max(graphMin, windowMin) / 2.0) * 0.2;
-                                var width = Math.ceil(delta + size.width + delta);
-                                var height = Math.ceil(delta + size.height + delta);
-                                originElement.setAttribute('transform', 'translate(' + delta.toString() + ', ' + delta.toString() + ') scale(1)');
-                                backgroundElement.setAttribute('width', width);
-                                backgroundElement.setAttribute('height', height);
-                                this._width = width;
-                                this._height = height;
-                                this._zoom = 1;
-                                graphElement.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
-                                graphElement.setAttribute('width', width / this._zoom);
-                                graphElement.setAttribute('height', height / this._zoom);
-                                if (inputElements && inputElements.length > 0) {
-                                    // Center view based on input elements
-                                    for (var j = 0; j < inputElements.length; j++) {
-                                        inputElements[j].scrollIntoView({ behavior: 'instant' });
-                                        break;
-                                    }
+                    var inputElements = graphElement.getElementsByClassName('graph-input');
+
+                    switch (this._host.environment('zoom')) {
+                        case 'scroll':
+                            var size = graphElement.getBBox();
+                            var margin = 100;
+                            var width = Math.ceil(margin + size.width + margin);
+                            var height = Math.ceil(margin + size.height + margin);
+                            originElement.setAttribute('transform', 'translate(' + margin.toString() + ', ' + margin.toString() + ') scale(1)');
+                            backgroundElement.setAttribute('width', width);
+                            backgroundElement.setAttribute('height', height);
+                            this._width = width;
+                            this._height = height;
+                            this._zoom = 1;
+                            delete this._scrollLeft;
+                            delete this._scrollRight;
+                            graphElement.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+                            graphElement.setAttribute('width', width);
+                            graphElement.setAttribute('height', height);
+                            if (inputElements && inputElements.length > 0) {
+                                // Center view based on input elements
+                                for (var j = 0; j < inputElements.length; j++) {
+                                    inputElements[j].scrollIntoView({ behavior: 'instant' });
+                                    break;
                                 }
-                                else {
-                                    // this._zoom.transform(svg, d3.zoomIdentity.translate((svgSize.width - g.graph().width) / 2, (svgSize.height - g.graph().height) / 2));
+                            }
+                            else {
+                                // this._zoom.transform(svg, d3.zoomIdentity.translate((svgSize.width - g.graph().width) / 2, (svgSize.height - g.graph().height) / 2));
+                            }
+                            break;
+                        case 'd3':
+                            var svgSize = graphElement.getBoundingClientRect();
+                            if (inputElements && inputElements.length > 0) {
+                                // Center view based on input elements
+                                var xs = [];
+                                var ys = [];
+                                for (var i = 0; i < inputElements.length; i++) {
+                                    var inputTransform = inputElements[i].transform.baseVal.consolidate().matrix;
+                                    xs.push(inputTransform.e);
+                                    ys.push(inputTransform.f);
                                 }
-                                break;
-                            case 'd3':
-                                var svgSize = graphElement.getBoundingClientRect();
-                                if (inputElements && inputElements.length > 0) {
-                                    // Center view based on input elements
-                                    var xs = [];
-                                    var ys = [];
-                                    for (var i = 0; i < inputElements.length; i++) {
-                                        var inputTransform = inputElements[i].transform.baseVal.consolidate().matrix;
-                                        xs.push(inputTransform.e);
-                                        ys.push(inputTransform.f);
-                                    }
-                                    var x = xs[0];
-                                    var y = ys[0];
-                                    if (ys.every(y => y == ys[0])) {
-                                        x = xs.reduce((a,b) => { return a + b; }) / xs.length;
-                                    }
-                                    this._zoom.transform(svg, d3.zoomIdentity.translate((svgSize.width / 2) - x, (svgSize.height / 4) - y));
+                                var x = xs[0];
+                                var y = ys[0];
+                                if (ys.every(y => y == ys[0])) {
+                                    x = xs.reduce((a,b) => { return a + b; }) / xs.length;
                                 }
-                                else {
-                                    this._zoom.transform(svg, d3.zoomIdentity.translate((svgSize.width - g.graph().width) / 2, (svgSize.height - g.graph().height) / 2));
-                                }
-                                break;
-                        }
-                        callback(null);
+                                this._zoom.transform(svg, d3.zoomIdentity.translate((svgSize.width / 2) - x, (svgSize.height / 4) - y));
+                            }
+                            else {
+                                this._zoom.transform(svg, d3.zoomIdentity.translate((svgSize.width - g.graph().width) / 2, (svgSize.height - g.graph().height) / 2));
+                            }
+                            break;
                     }
-                    catch (err) {
-                        callback(err);
-                    }
-                }, 20);
+                    return;
+                });
             }
         }
-        catch (err) {
-            callback(err);
+        catch (error) {
+            return Promise.reject(error);
         }
     }
 
@@ -936,101 +931,52 @@ view.View = class {
 
     showModelProperties() {
         if (this._model) {
-            var view = new sidebar.ModelSidebar(this._model, this._host);
-            view.on('update-active-graph', (sender, name) => {
-                this.updateActiveGraph(name);
+            var modelSidebar = new sidebar.ModelSidebar(this._host, this._model, this._activeGraph);
+            modelSidebar.on('update-active-graph', (sender, name) => {
+                this._updateActiveGraph(name);
             });
-            this._sidebar.open(view.render(), 'Model Properties');
+            this._sidebar.open(modelSidebar.render(), 'Model Properties');
         }
     }
     
     showNodeProperties(node, input) {
         if (node) {
-            var view = new sidebar.NodeSidebar(node, this._host);
-            view.on('show-documentation', (/* sender, e */) => {
+            var nodeSidebar = new sidebar.NodeSidebar(this._host, node);
+            nodeSidebar.on('show-documentation', (/* sender, e */) => {
                 this.showOperatorDocumentation(node);
             });
-            view.on('export-tensor', (sender, tensor) => {
-                this._host.require('./numpy', (err, numpy) => {
-                    if (!err) {
-                        var defaultPath = tensor.name ? tensor.name.split('/').join('_').split(':').join('_').split('.').join('_') : 'tensor';
-                        this._host.save('NumPy Array', 'npy', defaultPath, (file) => {
-                            try {
-                                var array = new numpy.Array(tensor.value, tensor.type.dataType, tensor.type.shape.dimensions);
-                                var blob = new Blob([ array.toBuffer() ], { type: 'application/octet-stream' });
-                                this._host.export(file, blob);
-                            }
-                            catch (error) {
-                                this.error('Error saving NumPy tensor.', error);
-                            }
-                        });
-                    }
+            nodeSidebar.on('export-tensor', (sender, tensor) => {
+                this._host.require('./numpy').then((numpy) => {
+                    var defaultPath = tensor.name ? tensor.name.split('/').join('_').split(':').join('_').split('.').join('_') : 'tensor';
+                    this._host.save('NumPy Array', 'npy', defaultPath, (file) => {
+                        try {
+                            var array = new numpy.Array(tensor.value, tensor.type.dataType, tensor.type.shape.dimensions);
+                            var blob = new Blob([ array.toBuffer() ], { type: 'application/octet-stream' });
+                            this._host.export(file, blob);
+                        }
+                        catch (error) {
+                            this.error('Error saving NumPy tensor.', error);
+                        }
+                    });
+                }).catch(() => {
                 });
             });
             if (input) {
-                view.toggleInput(input.name);
+                nodeSidebar.toggleInput(input.name);
             }
-            this._sidebar.open(view.render(), 'Node Properties');
+            this._sidebar.open(nodeSidebar.render(), 'Node Properties');
         }
     }
 
     showOperatorDocumentation(node) {
         var documentation = node.documentation;
         if (documentation) {
-            var view = new sidebar.OperatorDocumentationSidebar(documentation);
-            view.on('navigate', (sender, e) => {
+            var documentationSidebar = new sidebar.OperatorDocumentationSidebar(documentation);
+            documentationSidebar.on('navigate', (sender, e) => {
                 this._host.openURL(e.link);
             });
-            this._sidebar.open(view.render(), 'Documentation');
+            this._sidebar.push(documentationSidebar.render(), 'Documentation');
         }
-    }
-
-    static formatAttributeValue(value, type) {
-        if (typeof value === 'function') {
-            return value();
-        }
-        if (typeof value === 'string' && type && type != 'string') {
-            return value;
-        }
-        if (value && long.Long.isLong(value)) {
-            return value.toString();
-        }
-        if (value && long.Long.isLong(value)) {
-            return value.toString();
-        }
-        if (Number.isNaN(value)) {
-            return 'NaN';
-        }
-        if (type == 'shape') {
-            return value.toString();
-        }
-        if (type == 'shape[]') {
-            return value.map((item) => item.toString()).join(', ');
-        }
-        if (type == 'graph') {
-            return value.toString();
-        }
-        if (type == 'graph[]') {
-            return value.map((item) => item.toString()).join(', ');
-        }
-        if (type == 'tensor') {
-            if (value && value.type && value.type.shape && value.type.shape.dimensions && value.type.shape.dimensions.length == 0) {
-                return value.toString();
-            }
-            return '[...]';
-        }
-        if (Array.isArray(value)) {
-            return value.map((item) => {
-                if (item && long.Long.isLong(item)) {
-                    return item.toString();
-                }
-                if (Number.isNaN(item)) {
-                    return 'NaN';
-                }
-                return JSON.stringify(item);
-            }).join(', ');
-        }
-        return JSON.stringify(value);
     }
 };
 
@@ -1045,11 +991,11 @@ class ModelContext {
 
     constructor(context) {
         this._context = context;
-        this._tags = {};
+        this._tags = new Map();
     }
 
-    request(file, encoding, callback) {
-        this._context.request(file, encoding, callback);
+    request(file, encoding) {
+        return this._context.request(file, encoding);
     }
 
     get identifier() {
@@ -1067,19 +1013,48 @@ class ModelContext {
         return this._text;
     }
 
+    get entries() {
+        if (!this._entries) {
+            this._entries = [];
+            var buffer = this.buffer;
+            if (buffer && buffer.length > 2 && buffer[0] == 0x50 && buffer[1] == 0x4B) {
+                try {
+                    var archive = new zip.Archive(buffer);
+                    this._entries = archive.entries;
+                }
+                catch (error) {
+                    this._entries = [];
+                }
+            }
+        }
+        return this._entries;
+    }
+
     tags(extension) {
-        var tags = this._tags[extension];
+        var tags = this._tags.get(extension);
         if (!tags) {
-            tags = {};
+            tags = new Map();
             try {
                 var reader = null;
                 switch (extension) {
                     case 'pbtxt':
+                        var b = this.buffer;
+                        var length = b.length;
+                        var signature = 
+                            (length >= 3 && b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) ||
+                            (length >= 4 && b[0] === 0x00 && b[1] === 0x00 && b[2] === 0xfe && b[3] === 0xff) ||
+                            (length >= 4 && b[0] === 0xff && b[1] === 0xfe && b[2] === 0x00 && b[3] === 0x00) ||
+                            (length >= 4 && b[0] === 0x84 && b[1] === 0x31 && b[2] === 0x95 && b[3] === 0x33) ||
+                            (length >= 2 && b[0] === 0xfe && b[1] === 0xff) ||
+                            (length >= 2 && b[0] === 0xff && b[1] === 0xfe);
+                        if (!signature && b.subarray(0, Math.min(1024, length)).some((c) => c < 7 || (c > 14 && c < 32))) {
+                            break;
+                        }
                         reader = prototxt.TextReader.create(this.text);
                         reader.start(false);
                         while (!reader.end(false)) {
                             var tag = reader.tag();
-                            tags[tag] = true;
+                            tags.set(tag, true);
                             reader.skip();
                         }
                         break;
@@ -1087,12 +1062,12 @@ class ModelContext {
                         reader = new protobuf.Reader.create(this.buffer);
                         while (reader.pos < reader.len) {
                             var tagType = reader.uint32();
-                            tags[tagType >>> 3] = tagType & 7;
+                            tags.set(tagType >>> 3, tagType & 7);
                             try {
                                 reader.skipType(tagType & 7);
                             }
                             catch (err) {
-                                tags = {};
+                                tags = new Map();
                                 break;
                             }
                         }
@@ -1100,9 +1075,9 @@ class ModelContext {
                 }
             }
             catch (error) {
-                tags = {};
+                tags = new Map();
             }
-            this._tags[extension] = tags;
+            this._tags.set(extension, tags);
         }
         return tags;
     }
@@ -1117,7 +1092,7 @@ class ArchiveContext {
                 if (entry.name.startsWith(rootFolder)) {
                     var name = entry.name.substring(rootFolder.length);
                     if (identifier.length > 0 && identifier.indexOf('/') < 0) {
-                        this._entries[name] = entry.substring(rootFolder.length);
+                        this._entries[name] = entry;
                     }
                 }
             }
@@ -1126,17 +1101,16 @@ class ArchiveContext {
         this._buffer = buffer;
     }
 
-    request(file, encoding, callback) {
+    request(file, encoding) {
         var entry = this._entries[file];
         if (!entry) {
-            callback(new Error('File not found.'), null);
-            return;
+            return Promise.reject(new Error('File not found.'));
         }
         var data = entry.data;
-        if (data != null) {
+        if (encoding != null) {
             data = new TextDecoder(encoding).decode(data);
         }
-        callback(null, data);
+        return Promise.resolve(data);
     }
 
     get identifier() {
@@ -1161,20 +1135,24 @@ view.ModelFactoryService = class {
         this._host = host;
         this._extensions = [];
         this.register('./onnx', [ '.onnx', '.pb', '.pbtxt', '.prototxt' ]);
-        this.register('./mxnet', [ '.model', '.json' ]);
-        this.register('./keras', [ '.h5', '.keras', '.hdf5', '.json', '.model' ]);
+        this.register('./mxnet', [ '.mar', '.model', '.json', '.params' ]);
+        this.register('./keras', [ '.h5', '.hd5', '.hdf5', '.keras', '.json', '.model' ]);
         this.register('./coreml', [ '.mlmodel' ]);
-        this.register('./caffe', [ '.caffemodel', '.pbtxt', '.prototxt' ]);
+        this.register('./caffe', [ '.caffemodel', '.pbtxt', '.prototxt', '.pt' ]);
         this.register('./caffe2', [ '.pb', '.pbtxt', '.prototxt' ]);
-        this.register('./pytorch', [ '.pt', '.pth', '.pkl', '.h5', '.t7', '.model', '.dms', '.pth.tar' ]);
+        this.register('./pytorch', [ '.pt', '.pth', '.pkl', '.h5', '.t7', '.model', '.dms', '.pth.tar', '.ckpt', '.bin' ]);
         this.register('./torch', [ '.t7' ]);
-        this.register('./tflite', [ '.tflite', '.lite' ]);
-        this.register('./tf', [ '.pb', '.meta', '.pbtxt', '.prototxt' ]);
-        this.register('./sklearn', [ '.pkl', '.joblib' ]);
+        this.register('./torchscript', [ '.pt', '.pth' ]);
+        this.register('./tflite', [ '.tflite', '.lite', '.tfl', '.bin' ]);
+        this.register('./tf', [ '.pb', '.meta', '.pbtxt', '.prototxt', '.json' ]);
+        this.register('./sklearn', [ '.pkl', '.joblib', '.model' ]);
         this.register('./cntk', [ '.model', '.cntk', '.cmf', '.dnn' ]);
         this.register('./openvino', [ '.xml' ]);
         this.register('./darknet', [ '.cfg' ]);
         this.register('./paddle', [ '.paddle', '__model__' ]);
+        this.register('./ncnn', [ '.param', '.bin', '.cfg.ncnn', '.weights.ncnn' ]);
+        this.register('./dl4j', [ '.zip' ]);
+        this.register('./mlnet', [ '.zip' ]);
     }
 
     register(id, extensions) {
@@ -1183,68 +1161,51 @@ view.ModelFactoryService = class {
         }
     }
  
-    open(context, callback) {
-        this._openArchive(context, (err, context) => {
-            if (err) {
-                callback(err, null);
-                return;
-            }
+    open(context) {
+        return this._openArchive(context).then((context) => {
             context = new ModelContext(context);
             var extension = context.identifier.split('.').pop().toLowerCase();
             var modules = this._filter(context);
             if (modules.length == 0) {
-                callback(new ModelError("Unsupported file extension '." + extension + "'."), null);
-                return;
+                throw new ModelError("Unsupported file extension '." + extension + "'.");
             }
             var errors = [];
-            var matches = 0;
+            var match = false;
             var nextModule = () => {
                 if (modules.length > 0) {
                     var id = modules.shift();
-                    this._host.require(id, (err, module) => {
-                        if (err) {
-                            callback(err, null);
-                            return;
-                        }
+                    return this._host.require(id).then((module) => {
                         if (!module.ModelFactory) {
-                            callback(new ModelError("Failed to load module '" + id + "'."), null);
-                            return;
+                            throw new ModelError("Failed to load module '" + id + "'.");
                         }
                         var modelFactory = new module.ModelFactory(); 
                         if (!modelFactory.match(context)) {
-                            nextModule();
-                            return;
+                            return nextModule();
                         }
-                        matches++;
-                        modelFactory.open(context, this._host, (err, model) => {
-                            if (err) {
-                                errors.push(err);
-                                nextModule();
-                                return;
-                            }
-                            callback(null, model);
-                            return;
+                        match++;
+                        return modelFactory.open(context, this._host).then((model) => {
+                            return model;
+                        }).catch((error) => {
+                            errors.push(error);
+                            return nextModule();
                         });
                     });
                 }
                 else {
-                    if (matches > 0) {
+                    if (match) {
                         if (errors.length == 1) {
-                            callback(errors[0], null);
-                            return;
+                            throw errors[0];
                         }
-                        callback(new ModelError(errors.map((err) => err.message).join('\n')), null);
-                        return;
+                        throw new ModelError(errors.map((err) => err.message).join('\n'));
                     }
-                    callback(new ModelError("Unsupported file content for extension '." + extension + "' in '" + context.identifier + "'."), null);
-                    return;
+                    throw new ModelError("Unsupported file content for extension '." + extension + "' in '" + context.identifier + "'.");
                 }
             };
-            nextModule();
+            return nextModule();
         });
     }
 
-    _openArchive(context, callback) {
+    _openArchive(context) {
         var extension;
         var archive;
         var entry;
@@ -1260,7 +1221,6 @@ view.ModelFactoryService = class {
                 if (archive.entries.length == 1) {
                     entry = archive.entries[0];
                     if (entry.name) {
-                            
                         identifier = entry.name;
                     }
                     else {
@@ -1270,15 +1230,13 @@ view.ModelFactoryService = class {
                         }
                     }
                     buffer = entry.data;
-                    archive = null;
                 }
             }
         }
         catch (error) {
             message = error && error.message ? error.message : error.toString();
             message = message.endsWith('.') ? message.substring(0, message.length - 1) : message;
-            callback(new ArchiveError(message + " in '" + identifier + "'."), null);
-            return;
+            return Promise.reject(new ArchiveError(message + " in '" + identifier + "'."));
         }
 
         try {
@@ -1299,15 +1257,14 @@ view.ModelFactoryService = class {
         catch (error) {
             message = error && error.message ? error.message : error.toString();
             message = message.endsWith('.') ? message.substring(0, message.length - 1) : message;
-            callback(new ArchiveError(message + " in '" + identifier + "'."), null);
-            return;
+            return Promise.reject(new ArchiveError(message + " in '" + identifier + "'."));
+        }
+
+        if (!archive) {
+            return Promise.resolve(context);
         }
 
         try {
-            if (!archive) {
-                callback(null, context);
-                return;
-            }
             var folders = {};
             for (entry of archive.entries) {
                 if (entry.name.indexOf('/') != -1) {
@@ -1324,6 +1281,7 @@ view.ModelFactoryService = class {
             rootFolder = rootFolder == '/' ? '' : rootFolder;
             var matches = [];
             var entries = archive.entries.slice();
+            var sourceContext = context;
             var nextEntry = () => {
                 if (entries.length > 0) {
                     var entry = entries.shift();
@@ -1335,79 +1293,67 @@ view.ModelFactoryService = class {
                             var nextModule = () => {
                                 if (modules.length > 0) {
                                     var id = modules.shift();
-                                    this._host.require(id, (err, module) => {
-                                        if (err) {
-                                            callback(err, null);
-                                            return;
-                                        }
+                                    return this._host.require(id).then((module) => {
                                         if (!module.ModelFactory) {
-                                            callback(new ArchiveError("Failed to load module '" + id + "'.", null), null);
+                                            throw new ArchiveError("Failed to load module '" + id + "'.", null);
                                         }
                                         var factory = new module.ModelFactory();
                                         if (factory.match(context)) {
                                             matches.push(entry);
                                             modules = [];
                                         }
-                                        nextModule();
-                                        return;
+                                        return nextModule();
                                     });
                                 }
                                 else {
-                                    nextEntry();
-                                    return;
+                                    return nextEntry();
                                 }
                             };
-                            nextModule();
-                            return;
+                            return nextModule();
                         }
                     }
-                    nextEntry();
+                    return nextEntry();
                 }
                 else {
                     if (matches.length == 0) {
-                        callback(new ArchiveError('Root does not contain model file.'), null);
-                        return;
+                        return Promise.resolve(sourceContext);
+                        // return Promise.reject(new ArchiveError('Archive does not contain model file.'));
                     }
                     else if (matches.length > 1) {
-                        callback(new ArchiveError('Root contains multiple model files.'), null);
-                        return;
+                        if (matches.length == 2 &&
+                            matches.some((e) => e.name.endsWith('.params')) &&
+                            matches.some((e) => e.name.endsWith('-symbol.json'))) {
+                            matches = matches.filter((e) => e.name.endsWith('.params'));
+                        }
+                        else {
+                            return Promise.reject(new ArchiveError('Archive contains multiple model files.'));
+                        }
                     }
                     var match = matches[0];
-                    callback(null, new ModelContext(new ArchiveContext(entries, rootFolder, match.name, match.data)));
-                    return;
+                    return Promise.resolve(new ModelContext(new ArchiveContext(archive.entries, rootFolder, match.name, match.data)));
                 }
             };
-            nextEntry();
-            return;
+            return nextEntry();
         }
         catch (error) {
-            callback(new ArchiveError(error.message), null);
-            return;
+            return Promise.reject(new ArchiveError(error.message));
         }
     }
 
     accept(identifier) {
-        var extension = identifier.toLowerCase().split('.').pop();
-        var excludes = [
-            'blockmap', 'checkpoint', 'ckpt', 'dat', 'test', 'bytes', 'desktop', 'graph',
-            'index', 'data-00000-of-00001',
-            'exe', 'dll', 'bin', 'raw', 'msg',
-            'html', 'pdf', 'rtf', 'txt', 'md', 'svg', 'csv',
-            'xls', 'doc', 'ppt', 'xlsx', 'docx', 'pptx',
-            'jpeg', 'jpg', 'png', 'gif', 'ico', 'icns',
-            'js', 'py', 'pyc', 'ipynb',
-            'params', 'weights',
-            'mp3', 'mp4', 'mov',
-            'npy', 'npz',
-            'tmp'
-        ];
-        if (excludes.some((exclude) => exclude == extension)) {
-            return false;
+        identifier = identifier.toLowerCase();
+        for (var extension of this._extensions) {
+            if (identifier.endsWith(extension.extension)) {
+                return true;
+            }
         }
-        if (extension.startsWith('data-')) {
-            return false;
+        if (identifier.endsWith('.zip') ||
+            identifier.endsWith('.tar') ||
+            identifier.endsWith('.tar.gz') ||
+            identifier.endsWith('.tgz')) {
+            return true;
         }
-        return true;
+        return false;
     }
 
     _filter(context) {

@@ -14,12 +14,8 @@ coreml.ModelFactory = class {
         return extension == 'mlmodel';
     }
 
-    open(context, host, callback) { 
-        host.require('./coreml-proto', (err) => {
-            if (err) {
-                callback(err, null);
-                return;
-            }
+    open(context, host) { 
+        return host.require('./coreml-proto').then(() => {
             var identifier = context.identifier;
             var decodedBuffer = null;
             try {
@@ -27,20 +23,17 @@ coreml.ModelFactory = class {
                 decodedBuffer = coreml.proto.Model.decode(context.buffer);
             }
             catch (error) {
-                callback(new coreml.Error("File format is not coreml.Model (" + error.message + ") in '" + identifier + "'."), null);
-                return;
+                throw new coreml.Error("File format is not coreml.Model (" + error.message + ") in '" + identifier + "'.");
             }
-            coreml.Metadata.open(host, (err, metadata) => {
+            return coreml.Metadata.open(host).then((metadata) => {
                 try {
-                    var model = new coreml.Model(metadata, decodedBuffer);
-                    callback(null, model);
+                    return new coreml.Model(metadata, decodedBuffer);
                 }
                 catch (error) {
                     host.exception(error, false);
                     var message = error && error.message ? error.message : error.toString();
                     message = message.endsWith('.') ? message.substring(0, message.length - 1) : message;
-                    callback(new coreml.Error(message + " in '" + identifier + "'."), null);
-                    return;
+                    throw new coreml.Error(message + " in '" + identifier + "'.");
                 }
             });
         });
@@ -73,7 +66,7 @@ coreml.Model = class {
     }
 
     get format() {
-        return 'CoreML v' + this._specificationVersion.toString();
+        return 'Core ML v' + this._specificationVersion.toString();
     }
 
     get version() {
@@ -110,13 +103,13 @@ coreml.Graph = class {
 
         if (this._description) {
             this._inputs = this._description.input.map((input) => {
-                var connection = new coreml.Connection(input.name, coreml.Graph._formatFeatureType(input.type), input.shortDescription, null);
-                return new coreml.Argument(input.name, true, [ connection ]);
+                var argument = new coreml.Argument(input.name, coreml.Graph._formatFeatureType(input.type), input.shortDescription, null);
+                return new coreml.Parameter(input.name, true, [ argument ]);
             });
 
             this._outputs = this._description.output.map((output) => {
-                var connection = new coreml.Connection(output.name, coreml.Graph._formatFeatureType(output.type), output.shortDescription, null);
-                return new coreml.Argument(output.name, true, [ connection ]);
+                var argument = new coreml.Argument(output.name, coreml.Graph._formatFeatureType(output.type), output.shortDescription, null);
+                return new coreml.Parameter(output.name, true, [ argument ]);
             });
         }
 
@@ -171,7 +164,7 @@ coreml.Graph = class {
     }
 
     _updatePreprocessing(scope, group, preprocessing) {
-        if (preprocessing && preprocessing.length > 0) {               
+        if (preprocessing && preprocessing.length > 0) {
             var preprocessingInput = this._description.input[0].name;
             var inputNodes = [];
             for (var node of this._nodes) {
@@ -194,6 +187,7 @@ coreml.Graph = class {
     }
 
     _loadModel(model, scope, group) {
+        var i;
         this._groups = this._groups | (group.length > 0 ? true : false);
         var layer;
         if (model.neuralNetworkClassifier) {
@@ -222,20 +216,20 @@ coreml.Graph = class {
             return 'Neural Network Regressor';
         }
         else if (model.pipeline) {
-            for (layer of model.pipeline.models) {
-                this._loadModel(layer, scope, (group ? (group + '/') : '') + 'pipeline');
+            for (i = 0; i < model.pipeline.models.length; i++) {
+                this._loadModel(model.pipeline.models[i], scope, (group ? (group + '/') : '') + 'pipeline[' + i.toString() + ']');
             }
             return 'Pipeline';
         }
         else if (model.pipelineClassifier) {
-            for (layer of model.pipelineClassifier.pipeline.models) {
-                this._loadModel(layer, scope, (group ? (group + '/') : '') + 'pipelineClassifier');
+            for (i = 0; i < model.pipelineClassifier.pipeline.models.length; i++) {
+                this._loadModel(model.pipelineClassifier.pipeline.models[i], scope, (group ? (group + '/') : '') + 'pipelineClassifier[' + i.toString() + ']');
             }
             return 'Pipeline Classifier';
         }
         else if (model.pipelineRegressor) {
-            for (layer of model.pipelineRegressor.pipeline.models) {
-                this._loadModel(layer, scope, (group ? (group + '/') : '') + 'pipelineRegressor');
+            for (i = 0; i < model.pipelineRegressor.pipeline.models.length; i++) {
+                this._loadModel(model.pipelineRegressor.pipeline.models[i], scope, (group ? (group + '/') : '') + 'pipelineRegressor[' + i.toString() + ']');
             }
             return 'Pipeline Regressor';
         }
@@ -368,20 +362,73 @@ coreml.Graph = class {
                 [ model.description.output[0].name ]);
             return 'Text Classifier';
         }
-        return 'Unknown';
+        else if (model.nonMaximumSuppression) {
+            var nonMaximumSuppressionParams = { 
+                pickTop: model.nonMaximumSuppression.pickTop,
+                stringClassLabels: model.nonMaximumSuppression.stringClassLabels,
+                iouThreshold: model.nonMaximumSuppression.iouThreshold, 
+                confidenceThreshold: model.nonMaximumSuppression.confidenceThreshold
+            };
+            this._createNode(scope, group, 'nonMaximumSuppression', null, 
+                nonMaximumSuppressionParams,
+                [
+                    model.nonMaximumSuppression.confidenceInputFeatureName,
+                    model.nonMaximumSuppression.coordinatesInputFeatureName,
+                    model.nonMaximumSuppression.iouThresholdInputFeatureName,
+                    model.nonMaximumSuppression.confidenceThresholdInputFeatureName,
+                ],
+                [ 
+                    model.nonMaximumSuppression.confidenceOutputFeatureName,
+                    model.nonMaximumSuppression.coordinatesOutputFeatureName
+                ]);
+            return 'Non Maximum Suppression';
+        }
+        else if (model.visionFeaturePrint) {
+            var visionFeaturePrintParams = {
+                scene: model.visionFeaturePrint.scene
+            }
+            this._createNode(scope, group, 'visionFeaturePrint', null,
+                visionFeaturePrintParams,
+                [ model.description.input[0].name ],
+                [ model.description.output[0].name ]);
+            return 'Vision Feature Print';
+        }
+        else if (model.soundAnalysisPreprocessing) {
+            this._createNode(scope, group, 'soundAnalysisPreprocessing', null,
+                model.soundAnalysisPreprocessing,
+                [ model.description.input[0].name ],
+                [ model.description.output[0].name ]);
+            return 'Sound Analysis Preprocessing';
+        }
+        else if (model.kNearestNeighborsClassifier) {
+            this._createNode(scope, group, 'kNearestNeighborsClassifier', null,
+                model.kNearestNeighborsClassifier,
+                [ model.description.input[0].name ],
+                [ model.description.output[0].name ]);
+            this._updateClassifierOutput(group, model.kNearestNeighborsClassifier);
+            return 'kNearestNeighborsClassifier';
+        }
+        else if (model.customModel) {
+            this._createNode(scope, group, 'customModel', null,
+                { className: model.customModel.className, parameters: model.customModel.parameters },
+                [ model.description.input[0].name ],
+                [ model.description.output[0].name ]);
+            return 'customModel';
+        }
+        throw new coreml.Error("Unknown model type '" + JSON.stringify(Object.keys(model)) + "'.");
     }
 
     _createNode(scope, group, operator, name, data, inputs, outputs) {
-        inputs = inputs.map((input) => scope[input] ? scope[input].connection : input);
+        inputs = inputs.map((input) => scope[input] ? scope[input].argument : input);
         outputs = outputs.map((output) => {
             if (scope[output]) {
                 scope[output].counter++;
-                var next = output + '\n' + scope[output].counter.toString(); // custom connection id
-                scope[output].connection = next;
+                var next = output + '\n' + scope[output].counter.toString(); // custom argument id
+                scope[output].argument = next;
                 return next;
             }
             scope[output] = {
-                connection: output,
+                argument: output,
                 counter: 0
             };
             return output;
@@ -443,11 +490,11 @@ coreml.Graph = class {
     }
 };
 
-coreml.Argument = class {
-    constructor(name, visible, connections) {
+coreml.Parameter = class {
+    constructor(name, visible, args) {
         this._name = name;
         this._visible = visible;
-        this._connections = connections;
+        this._arguments = args;
     }
 
     get name() {
@@ -458,12 +505,13 @@ coreml.Argument = class {
         return this._visible;
     }
 
-    get connections() {
-        return this._connections;
+    get arguments() {
+        return this._arguments;
     }
 };
 
-coreml.Connection = class {
+coreml.Argument = class {
+
     constructor(id, type, description, initializer) {
         this._id = id;
         this._type = type;
@@ -574,8 +622,8 @@ coreml.Node = class {
 
     get inputs() {
         var inputs = this._metadata.getInputs(this._operator, this._inputs).map((input) => {
-            return new coreml.Argument(input.name, true, input.connections.map((connection) => {
-                return new coreml.Connection(connection.id, connection.type, null, null);
+            return new coreml.Parameter(input.name, true, input.arguments.map((argument) => {
+                return new coreml.Argument(argument.id, argument.type, null, null);
             }));
         });
         return inputs.concat(this._initializers);
@@ -584,7 +632,7 @@ coreml.Node = class {
     get outputs() {
         return this._outputs.map((output, index) => {
             var name = this._metadata.getOutputName(this._operator, index);
-            return new coreml.Argument(name, true, [ new coreml.Connection(output, null, null, null) ]);
+            return new coreml.Parameter(name, true, [ new coreml.Argument(output, null, null, null) ]);
         });
     }
 
@@ -635,7 +683,7 @@ coreml.Node = class {
                 }
                 return { 'scale': true, 'bias': data.hasBias };
             case 'bias':
-                this._initializer('Weights', 'bias', data.shapeBias, data.bias);
+                this._initializer('Weights', 'bias', data.shape, data.bias);
                 return { 'bias': true };
             case 'simpleRecurrent':
                 this._initializer('Weights', 'weights', [ data.outputVectorSize, data.inputVectorSize ], data.weightMatrix);
@@ -703,6 +751,9 @@ coreml.Node = class {
                 data.modelParameterData = Array.from(data.modelParameterData);
                 data.stringClassLabels = this._convertVector(data.stringClassLabels);
                 return {};
+            case 'nonMaximumSuppression':
+                data.stringClassLabels = this._convertVector(data.stringClassLabels);
+                return {};
         }
         return {};
     }
@@ -716,13 +767,13 @@ coreml.Node = class {
 
     _initializer(kind, name, shape, data) {
         var initializer = new coreml.Tensor(kind, name, shape, data);
-        var connection = new coreml.Connection('', null, null, initializer);
+        var argument = new coreml.Argument('', null, null, initializer);
         var visible = true;
         var schema = this._metadata.getInputSchema(this._operator, name);
-        if (schema && schema.hasOwnProperty('visible') && !schema.visible) {
+        if (schema && Object.prototype.hasOwnProperty.call(schema, 'visible') && !schema.visible) {
             visible = false;
         }
-        this._initializers.push(new coreml.Argument(name, visible, [ connection ]));
+        this._initializers.push(new coreml.Parameter(name, visible, [ argument ]));
     }
 };
 
@@ -747,10 +798,10 @@ coreml.Attribute = class {
                 }
             }
 
-            if (schema.hasOwnProperty('visible') && !schema.visible) {
+            if (Object.prototype.hasOwnProperty.call(schema, 'visible') && !schema.visible) {
                 this._visible = false;
             }
-            else if (schema.hasOwnProperty('default')) {
+            else if (Object.prototype.hasOwnProperty.call(schema, 'default')) {
                 if (Array.isArray(value)) {
                     value = value.map((item) => {
                         if (item && long.Long.isLong(item)) {
@@ -1035,16 +1086,17 @@ coreml.OptionalType = class {
 
 coreml.Metadata = class {
 
-    static open(host, callback) {
+    static open(host) {
         if (coreml.Metadata._metadata) {
-            callback(null, coreml.Metadata._metadata);
+            return Promise.resolve(coreml.Metadata._metadata);
         }
-        else {
-            host.request(null, 'coreml-metadata.json', 'utf-8', (err, data) => {
-                coreml.Metadata._metadata = new coreml.Metadata(data);
-                callback(null, coreml.Metadata._metadata);
-            });
-        }    
+        return host.request(null, 'coreml-metadata.json', 'utf-8').then((data) => {
+            coreml.Metadata._metadata = new coreml.Metadata(data);
+            return coreml.Metadata._metadata;
+        }).catch(() => {
+            coreml.Metadata._metadata = new coreml.Metadata(null);
+            return coreml.Metadata._metadata;
+        });
     }
 
     constructor(data) {
@@ -1102,7 +1154,7 @@ coreml.Metadata = class {
         var schema = this._map[operator];
         var index = 0;
         while (index < inputs.length) {
-            var result = { connections: [] };
+            var result = { arguments: [] };
             var count = 1;
             var name = null;
             if (schema && schema.inputs) {
@@ -1122,7 +1174,7 @@ coreml.Metadata = class {
             result.name = name ? name : '(' + index.toString() + ')';
             var array = inputs.slice(index, index + count);
             for (var j = 0; j < array.length; j++) {
-                result.connections.push({ id: array[j] });
+                result.arguments.push({ id: array[j] });
             }
             index += count;
             results.push(result);
@@ -1154,7 +1206,7 @@ coreml.Metadata = class {
 coreml.Error = class extends Error {
     constructor(message) {
         super(message);
-        this.name = 'Error loading CoreML model.';
+        this.name = 'Error loading Core ML model.';
     }
 };
 

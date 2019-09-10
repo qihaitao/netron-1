@@ -21,7 +21,22 @@ reset:
 
 update:
 	@[ -d node_modules ] || npm install
-	./tools/update
+	@./tools/caffe sync schema
+	@./tools/coreml sync install schema
+	@./tools/cntk sync schema
+	@./tools/darknet sync
+	@./tools/dl4j sync
+	@./tools/keras sync install metadata
+	@./tools/mlnet sync
+	@./tools/mxnet sync metadata
+	@./tools/ncnn sync
+	@./tools/onnx sync install schema metadata
+	@./tools/paddle sync schema
+	@./tools/pytorch sync install schema metadata
+	@./tools/sklearn sync install metadata
+	@./tools/tf sync install schema metadata
+	@./tools/tflite sync install schema
+	@./tools/torch sync
 
 build_python:
 	@[ -d node_modules ] || npm install
@@ -63,10 +78,7 @@ publish_github_pages:
 	git clone git@github.com:lutzroeder/netron.git ./build/gh-pages --branch gh-pages
 	rm -rf ./build/gh-pages/*
 	cp -R ./build/lib/netron/* ./build/gh-pages/
-	rm -rf ./build/gh-pages/*.py
-	rm -rf ./build/gh-pages/*.pyc
-	rm -rf ./build/gh-pages/netron
-	mv ./build/gh-pages/view-browser.html ./build/gh-pages/index.html
+	rm -rf ./build/gh-pages/*.py*
 	@export PACKAGE_VERSION=`node -pe "require('./package.json').version"`; \
 	sed -i -e "s/<!-- meta -->/<meta name='version' content='$$PACKAGE_VERSION' \/>/g" ./build/gh-pages/index.html
 	git -C ./build/gh-pages add --all

@@ -89,6 +89,10 @@ class Application {
 
     _ready() {
         this._configuration.load();
+        if (!this._configuration.has('userId')) {
+            this._configuration.set('userId', require('uuid').v4());
+        }
+        global.userId = this._configuration.get('userId');
         if (this._openFileQueue) {
             var openFileQueue = this._openFileQueue;
             this._openFileQueue = null;
@@ -115,12 +119,14 @@ class Application {
             filters: [
                 { name: 'All Model Files',  extensions: [ 
                     'onnx', 'pb',
-                    'h5', 'hdf5', 'json', 'keras',
+                    'h5', 'hd5', 'hdf5', 'json', 'keras',
                     'mlmodel',
                     'caffemodel',
-                    'model', 'dnn', 'cmf', 
+                    'model', 'dnn', 'cmf',
+                    'mar', 'params',
                     'meta',
-                    'tflite', 'lite',
+                    'tflite', 'lite', 'tfl', 'bin',
+                    'param', 'ncnn',
                     'pt', 'pth', 't7',
                     'pkl', 'joblib',
                     'pbtxt', 'prototxt',
@@ -229,24 +235,12 @@ class Application {
             return;
         }
         var autoUpdater = updater.autoUpdater;
-        /* autoUpdater.autoDownload = false;
-        autoUpdater.on('update-available', () => {
-            var owner = electron.BrowserWindow.getFocusedWindow();
-            var messageBoxOptions = {
-                icon: path.join(__dirname, 'icon.png'),
-                title: ' ',
-                message: 'A new version of ' + electron.app.getName() + ' is available.',
-                detail: 'Click \'Download and Install\' to download the update and automatically install it on exit.',
-                buttons: ['Download and Install', 'Remind Me Later'],
-                defaultId: 0,
-                cancelId: 1
-            };
-            if (electron.dialog.showMessageBox(owner, messageBoxOptions) == 0) {
-                autoUpdater.autoDownload = true;
-                autoUpdater.checkForUpdatesAndNotify();
-            }
-        }); */
-        autoUpdater.checkForUpdates();
+        var promise = autoUpdater.checkForUpdates();
+        if (promise) {
+            promise.catch((error) => {
+                console.log(error.message);
+            });
+        }
     }
 
     get package() { 
@@ -276,7 +270,7 @@ class Application {
             message: electron.app.getName(),
             detail: details.join('\n')
         };
-        electron.dialog.showMessageBox(owner, aboutDialogOptions);
+        electron.dialog.showMessageBoxSync(owner, aboutDialogOptions);
     }
 
     _updateMenu() {
@@ -427,19 +421,19 @@ class Application {
                 {
                     id: 'view.reset-zoom',
                     label: 'Actual &Size',
-                    accelerator: 'CmdOrCtrl+Backspace',
+                    accelerator: 'Shift+Backspace',
                     click: () => this.execute('reset-zoom', null),
                 },
                 {
                     id: 'view.zoom-in',
                     label: 'Zoom &In',
-                    accelerator: 'CmdOrCtrl+Up',
+                    accelerator: 'Shift+Up',
                     click: () => this.execute('zoom-in', null),
                 },
                 {
                     id: 'view.zoom-out',
                     label: 'Zoom &Out',
-                    accelerator: 'CmdOrCtrl+Down',
+                    accelerator: 'Shift+Down',
                     click: () => this.execute('zoom-out', null),
                 },
                 { type: 'separator' },
@@ -493,52 +487,52 @@ class Application {
             submenu: helpSubmenu
         });
 
-        var commandTable = {};
-        commandTable['file.export'] = {
+        var commandTable = new Map();
+        commandTable.set('file.export', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['edit.cut'] = {
+        });
+        commandTable.set('edit.cut', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['edit.copy'] = {
+        });
+        commandTable.set('edit.copy', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['edit.paste'] = {
+        });
+        commandTable.set('edit.paste', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['edit.select-all'] = {
+        });
+        commandTable.set('edit.select-all', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['edit.find'] = {
+        });
+        commandTable.set('edit.find', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['view.show-attributes'] = {
+        });
+        commandTable.set('view.show-attributes', {
             enabled: (context) => { return context.view && context.view.path ? true : false; },
             label: (context) => { return !context.view || !context.view.get('show-attributes') ? 'Show &Attributes' : 'Hide &Attributes'; }
-        };
-        commandTable['view.show-initializers'] = {
+        });
+        commandTable.set('view.show-initializers', {
             enabled: (context) => { return context.view && context.view.path ? true : false; },
             label: (context) => { return !context.view || !context.view.get('show-initializers') ? 'Show &Initializers' : 'Hide &Initializers'; }
-        };
-        commandTable['view.show-names'] = {
+        });
+        commandTable.set('view.show-names', {
             enabled: (context) => { return context.view && context.view.path ? true : false; },
             label: (context) => { return !context.view || !context.view.get('show-names') ? 'Show &Names' : 'Hide &Names'; }
-        };
-        commandTable['view.reload'] = {
+        });
+        commandTable.set('view.reload', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['view.reset-zoom'] = {
+        });
+        commandTable.set('view.reset-zoom', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['view.zoom-in'] = {
+        });
+        commandTable.set('view.zoom-in', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['view.zoom-out'] = {
+        });
+        commandTable.set('view.zoom-out', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
-        commandTable['view.show-properties'] = {
+        });
+        commandTable.set('view.show-properties', {
             enabled: (context) => { return context.view && context.view.path ? true : false; }
-        };
+        });
 
         this._menu.build(menuTemplate, commandTable);
         this._updateMenu();
@@ -620,7 +614,7 @@ class View {
             }
         });
         var location = url.format({
-            pathname: path.join(__dirname, 'view-electron.html'),
+            pathname: path.join(__dirname, 'electron.html'),
             protocol: 'file:',
             slashes: true
         });
@@ -645,7 +639,7 @@ class View {
                 this._window.webContents.send("open", { file: file });
             });
             var location = url.format({
-                pathname: path.join(__dirname, 'view-electron.html'),
+                pathname: path.join(__dirname, 'electron.html'),
                 protocol: 'file:',
                 slashes: true
             });
@@ -798,20 +792,21 @@ class ViewCollection {
 class ConfigurationService {
 
     load() {
+        this._data = { 'recents': [] };
         var dir = electron.app.getPath('userData');
         if (dir && dir.length > 0) {
             var file = path.join(dir, 'configuration.json'); 
             if (fs.existsSync(file)) {
                 var data = fs.readFileSync(file);
                 if (data) {
-                    this._data = JSON.parse(data);
+                    try {
+                        this._data = JSON.parse(data);
+                    }
+                    catch (error) {
+                        // continue regardless of error
+                    }
                 }
             }
-        }
-        if (!this._data) {
-            this._data = {
-                'recents': []
-            };
         }
     }
 
@@ -829,7 +824,7 @@ class ConfigurationService {
     }
 
     has(name) {
-        return this._data && this._data.hasOwnProperty(name);
+        return this._data && Object.prototype.hasOwnProperty.call(this._data, name);
     }
 
     set(name, value) {
@@ -847,14 +842,14 @@ class MenuService {
     build(menuTemplate, commandTable) {
         this._menuTemplate = menuTemplate;
         this._commandTable = commandTable;
-        this._itemTable = {};
+        this._itemTable = new Map();
         for (var menu of menuTemplate) {
             for (var item of menu.submenu) {
                 if (item.id) {
                     if (!item.label) {
                         item.label = '';
                     }
-                    this._itemTable[item.id] = item;
+                    this._itemTable.set(item.id, item);
                 }
             }
         }
@@ -878,15 +873,14 @@ class MenuService {
 
     _updateLabel(context) {
         var rebuild = false;
-        for (var id of Object.keys(this._commandTable)) {
-            var menuItem = this._menu.getMenuItemById(id);
-            var command = this._commandTable[id];
+        for (var entry of this._commandTable.entries()) {
+            var menuItem = this._menu.getMenuItemById(entry[0]);
+            var command = entry[1];
             if (command && command.label) {
                 var label = command.label(context);
                 if (label != menuItem.label) {
-                    var menuTemplateItem = this._itemTable[id];
-                    if (menuTemplateItem) {
-                        menuTemplateItem.label = label;
+                    if (this._itemTable.has(entry[0])) {
+                        this._itemTable.get(entry[0]).label = label;
                         rebuild = true;
                     }
                 }
@@ -896,10 +890,10 @@ class MenuService {
     }
 
     _updateEnabled(context) {
-        for (var id of Object.keys(this._commandTable)) {
-            var menuItem = this._menu.getMenuItemById(id);
-            var command = this._commandTable[id];
-            if (command) {
+        for (var entry of this._commandTable.entries()) {
+            var menuItem = this._menu.getMenuItemById(entry[0]);
+            if (menuItem) {
+                var command = entry[1];
                 if (command.enabled) {
                     menuItem.enabled = command.enabled(context);
                 }

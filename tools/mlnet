@@ -8,7 +8,7 @@ src=${root}/src
 third_party=${root}/third_party
 tools=${root}/tools
 
-identifier=torch
+identifier=mlnet
 
 bold() {
     echo "$(tty -s && tput bold)$1$(tty -s && tput sgr0)" 
@@ -26,13 +26,13 @@ git_sync() {
 }
 
 clean() {
-    bold "torch clean"
-    rm -rf ${third_party}/${identifier}
+    bold "mlnet clean"
+    rm -rf ${third_party}/mlnet
 }
 
 sync() {
-    bold "torch sync"
-    git_sync torch https://github.com/torch/torch7.git
+    bold "mlnet sync"
+    git_sync mlnet https://github.com/dotnet/machinelearning.git
 }
 
 while [ "$#" != 0 ]; do

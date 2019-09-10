@@ -16,12 +16,8 @@ paddle.ModelFactory = class {
         return false;
     }
 
-    open(context, host, callback) {
-        host.require('./paddle-proto', (err) => {
-            if (err) {
-                callback(err, null);
-                return;
-            }
+    open(context, host) {
+        return host.require('./paddle-proto').then(() => {
             var desc = null;
             var identifier = context.identifier; 
             try {
@@ -29,18 +25,15 @@ paddle.ModelFactory = class {
                 desc = paddle.proto.ProgramDesc.decode(context.buffer);
             }
             catch (error) {
-                callback(new paddle.Error("File format is not paddle.ProgramDesc (" + error.message + ") in '" + identifier + "'."), null);
-                return;
+                throw new paddle.Error("File format is not paddle.ProgramDesc (" + error.message + ") in '" + identifier + "'.");
             }
-            paddle.Metadata.open(host, (err, metadata) => {
+            return paddle.Metadata.open(host).then((metadata) => {
                 try {
-                    var model = new paddle.Model(metadata, desc);
-                    callback(null, model);
+                    return new paddle.Model(metadata, desc);
                 }
                 catch (error) {
                     host.exception(error, false);
-                    callback(new paddle.Error(error.message), null);
-                    return;
+                    throw new paddle.Error(error.message);
                 }
             });
         });
@@ -94,7 +87,7 @@ paddle.Graph = class {
             for (var output of block.ops[i].outputs) {
                 output.arguments = output.arguments.map((argument) => {
                     if (scope[argument]) {
-                        var next = argument + '\n' + i.toString(); // custom connection id
+                        var next = argument + '\n' + i.toString(); // custom argument id
                         scope[argument] = next;
                         return next;
                     }
@@ -109,14 +102,14 @@ paddle.Graph = class {
         for (var op of block.ops) {
             if (op.type == 'feed') {
                 var inputName = op.attrs.filter((attr) => attr.name == 'col')[0].i.toString();
-                this._inputs.push(new paddle.Argument(inputName, op.outputs[0].arguments.map((id) => {
-                    return new paddle.Connection(id, types[id], null, null);
+                this._inputs.push(new paddle.Parameter(inputName, op.outputs[0].arguments.map((id) => {
+                    return new paddle.Argument(id, types[id], null, null);
                 })));
             }
             else if (op.type == 'fetch') {
                 var outputName = op.attrs.filter((attr) => attr.name == 'col')[0].i.toString();
-                this._outputs.push(new paddle.Argument(outputName, op.inputs[0].arguments.map((id) => {
-                    return new paddle.Connection(id, types[id], null, null);
+                this._outputs.push(new paddle.Parameter(outputName, op.inputs[0].arguments.map((id) => {
+                    return new paddle.Argument(id, types[id], null, null);
                 })));
             }
             else {
@@ -168,10 +161,10 @@ paddle.Graph = class {
 };
 
 
-paddle.Argument = class {
-    constructor(name, connections) {
+paddle.Parameter = class {
+    constructor(name, args) {
         this._name = name;
-        this._connections = connections;
+        this._arguments = args;
     }
 
     get name() {
@@ -182,12 +175,12 @@ paddle.Argument = class {
         return true;
     }
 
-    get connections() {
-        return this._connections;
+    get arguments() {
+        return this._arguments;
     }
 };
 
-paddle.Connection = class {
+paddle.Argument = class {
 
     constructor(id, type, description, initializer) {
         this._id = id;
@@ -233,14 +226,14 @@ paddle.Node = class {
         }
         for (var input of op.inputs) {
             if (input.arguments.length > 0) {
-                var inputConnections = input.arguments.map((argument) => new paddle.Connection(argument, types[argument.split('\n').shift()], null, initializers[argument]));
-                this._inputs.push(new paddle.Argument(input.parameter, inputConnections));
+                var inputConnections = input.arguments.map((argument) => new paddle.Argument(argument, types[argument.split('\n').shift()], null, initializers[argument]));
+                this._inputs.push(new paddle.Parameter(input.parameter, inputConnections));
             }
         }
         for (var output of op.outputs) {
             if (output.arguments.length > 0) {
-                var outputConnections = output.arguments.map((argument) => new paddle.Connection(argument, types[argument.split('\n').shift()], null, null));
-                this._outputs.push(new paddle.Argument(output.parameter, outputConnections));
+                var outputConnections = output.arguments.map((argument) => new paddle.Argument(argument, types[argument.split('\n').shift()], null, null));
+                this._outputs.push(new paddle.Parameter(output.parameter, outputConnections));
             }
         }
         this._update(this._inputs, 'X');
@@ -358,7 +351,7 @@ paddle.Attribute = class {
 
         var schema = metadata.getAttributeSchema(operator, this._name);
         if (schema) {
-            if (schema.hasOwnProperty('default')) {
+            if (Object.prototype.hasOwnProperty.call(schema, 'default')) {
                 var defaultValue = schema.default;
                 var value = this._value;
                 if (defaultValue == value) {
@@ -473,16 +466,17 @@ paddle.TensorShape = class {
 
 paddle.Metadata = class {
 
-    static open(host, callback) {
+    static open(host) {
         if (paddle.Metadata._metadata) {
-            callback(null, paddle.Metadata._metadata);
+            return Promise.resolve(paddle.Metadata._metadata);
         }
-        else {
-            host.request(null, 'paddle-metadata.json', 'utf-8', (err, data) => {
-                paddle.Metadata._metadata = new paddle.Metadata(data);
-                callback(null, paddle.Metadata._metadata);
-            });
-        }    
+        return host.request(null, 'paddle-metadata.json', 'utf-8').then((data) => {
+            paddle.Metadata._metadata = new paddle.Metadata(data);
+            return paddle.Metadata._metadata;
+        }).catch(() => {
+            paddle.Metadata._metadata = new paddle.Metadata(null);
+            return paddle.Metadata._metadata;
+        });
     }
 
     constructor(data) {

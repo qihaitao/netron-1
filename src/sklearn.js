@@ -11,25 +11,27 @@ sklearn.ModelFactory = class {
 
     match(context) {
         var extension = context.identifier.split('.').pop().toLowerCase();
-        if (extension == 'pkl' || extension == 'joblib') {
+        if (extension == 'pkl' || extension == 'joblib' || extension == 'model') {
             var buffer = context.buffer;
-            // Reject PyTorch models with .pkl file extension.
-            var torch = [ 0x8a, 0x0a, 0x6c, 0xfc, 0x9c, 0x46, 0xf9, 0x20, 0x6a, 0xa8, 0x50, 0x19 ];
-            if (buffer && buffer.length > 14 && buffer[0] == 0x80 && torch.every((v, i) => v == buffer[i + 2])) {
-                return false;
+            if (buffer) {
+                // Reject PyTorch models with .pkl file extension.
+                var torch = [ 0x8a, 0x0a, 0x6c, 0xfc, 0x9c, 0x46, 0xf9, 0x20, 0x6a, 0xa8, 0x50, 0x19 ];
+                if (buffer.length > 14 && buffer[0] == 0x80 && torch.every((v, i) => v == buffer[i + 2])) {
+                    return false;
+                }
+                if (buffer.length > 1 && buffer[buffer.length - 1] === 0x2E) {
+                    return true;
+                }
+                if (buffer.length > 2 && buffer[0] === 0x80 && buffer[1] < 5) {
+                    return true;
+                }
             }
-            return true;
         }
         return false;
     }
 
-    open(context, host, callback) { 
-        host.require('./pickle', (err, pickle) => {
-            if (err) {
-                callback(err, null);
-                return;
-            }
-            
+    open(context, host) { 
+        return host.require('./pickle').then((pickle) => {
             var obj = null;
             var weights = null;
             var identifier = context.identifier;
@@ -49,8 +51,10 @@ sklearn.ModelFactory = class {
                         case 'u2': this.name = 'uint16'; this.itemsize = 2; break;
                         case 'u4': this.name = 'uint32'; this.itemsize = 4; break;
                         case 'u8': this.name = 'uint64'; this.itemsize = 8; break;
+                        case 'f2': this.name = 'float16'; this.itemsize = 2; break;
                         case 'f4': this.name = 'float32'; this.itemsize = 4; break;
                         case 'f8': this.name = 'float64'; this.itemsize = 8; break;
+                        case 'b1': this.name = 'int8'; this.itemsize = 1; break;
                         default:
                             if (obj.startsWith('V')) {
                                 this.itemsize = Number(obj.substring(1));
@@ -112,10 +116,11 @@ sklearn.ModelFactory = class {
                         array.__type__ = this.subtype;
                         array.dtype = this.typecode;
                         array.shape = this.shape;
-                        var size = array.dtype.itemsize;
+                        var dims = 1;
                         for (var i = 0; i < array.shape.length; i++) {
-                            size = size * array.shape[i];
+                            dims = dims * array.shape[i];
                         }
+                        var size = array.dtype.itemsize * dims;
                         if (typeof this.rawdata == 'string') {
                             array.data = unpickler.unescape(this.rawdata, size);
                             if (array.data.length != size) {
@@ -124,9 +129,6 @@ sklearn.ModelFactory = class {
                         }
                         else {
                             array.data = this.rawdata;
-                            if (array.data.length != size) {
-                                throw new sklearn.Error('Invalid array data size.');
-                            }
                         }
                         return array;
                     };
@@ -167,23 +169,36 @@ sklearn.ModelFactory = class {
                 constructorTable['sklearn.calibration._SigmoidCalibration'] = function() {};
                 constructorTable['sklearn.calibration.CalibratedClassifierCV​'] = function() {};
                 constructorTable['sklearn.compose._column_transformer.ColumnTransformer'] = function() {};
+                constructorTable['sklearn.compose._target.TransformedTargetRegressor'] = function() {};
                 constructorTable['sklearn.decomposition.PCA'] = function() {};
+                constructorTable['sklearn.decomposition.pca.PCA'] = function() {};
+                constructorTable['sklearn.discriminant_analysis.LinearDiscriminantAnalysis'] = function() {};
                 constructorTable['sklearn.externals.joblib.numpy_pickle.NumpyArrayWrapper'] = constructorTable['joblib.numpy_pickle.NumpyArrayWrapper'];
+                constructorTable['sklearn.externals.joblib.numpy_pickle.NDArrayWrapper'] = function() {};
                 constructorTable['sklearn.ensemble.forest.RandomForestClassifier'] = function() {};
                 constructorTable['sklearn.ensemble.forest.RandomForestRegressor'] = function() {};
                 constructorTable['sklearn.ensemble.forest.ExtraTreesClassifier'] = function() {};
+                constructorTable['sklearn.ensemble.gradient_boosting.BinomialDeviance'] = function() {};
+                constructorTable['sklearn.ensemble.gradient_boosting.GradientBoostingClassifier'] = function() {};
+                constructorTable['sklearn.ensemble.gradient_boosting.LogOddsEstimator'] = function() {};
+                constructorTable['sklearn.ensemble.gradient_boosting.MultinomialDeviance'] = function() {};
+                constructorTable['sklearn.ensemble.gradient_boosting.PriorProbabilityEstimator'] = function() {};
                 constructorTable['sklearn.ensemble.weight_boosting.AdaBoostClassifier'] = function() {};
                 constructorTable['sklearn.feature_extraction.text.CountVectorizer​'] = function() {};
+                constructorTable['sklearn.feature_extraction.text.HashingVectorizer'] = function() {};
                 constructorTable['sklearn.feature_extraction.text.TfidfVectorizer​'] = function() {};
                 constructorTable['sklearn.feature_extraction.text.TfidfTransformer​'] = function() {};
                 constructorTable['sklearn.feature_selection.variance_threshold.VarianceThreshold'] = function() {};
                 constructorTable['sklearn.impute.SimpleImputer'] = function() {};
                 constructorTable['sklearn.linear_model.base.LinearRegression'] = function() {};
+                constructorTable['sklearn.linear_model.sgd_fast.Hinge'] = function() {};
                 constructorTable['sklearn.linear_model.LogisticRegression'] = function() {};
                 constructorTable['sklearn.linear_model.logistic.LogisticRegression'] = function() {};
                 constructorTable['sklearn.linear_model.LassoLars​'] = function() {};
                 constructorTable['sklearn.linear_model.ridge.Ridge'] = function() {};
                 constructorTable['sklearn.linear_model.sgd_fast.Log'] = function() {};
+                constructorTable['sklearn.linear_model.stochastic_gradient.SGDClassifier'] = function() {};
+                constructorTable['sklearn.metrics.scorer._PredictScorer'] = function() {};
                 constructorTable['sklearn.model_selection._search.GridSearchCV'] = function() {};
                 constructorTable['sklearn.naive_bayes.BernoulliNB'] = function() {};
                 constructorTable['sklearn.naive_bayes.ComplementNB'] = function() {};
@@ -195,6 +210,7 @@ sklearn.ModelFactory = class {
                 constructorTable['sklearn.neighbors.KNeighborsClassifier​'] = function() {};
                 constructorTable['sklearn.neighbors.KNeighborsRegressor'] = function() {};
                 constructorTable['sklearn.neural_network.rbm.BernoulliRBM'] = function() {};
+                constructorTable['sklearn.neural_network.multilayer_perceptron.MLPClassifier'] = function() {};
                 constructorTable['sklearn.neural_network.multilayer_perceptron.MLPRegressor'] = function() {};
                 constructorTable['sklearn.neural_network.stochastic_gradient.SGDClassifier'] = function() {};
                 constructorTable['sklearn.neural_network._stochastic_optimizers.AdamOptimizer'] = function() {};
@@ -205,9 +221,12 @@ sklearn.ModelFactory = class {
                 constructorTable['sklearn.preprocessing.data.Binarizer'] = function() {};
                 constructorTable['sklearn.preprocessing.data.MaxAbsScaler'] = function() {};
                 constructorTable['sklearn.preprocessing.data.MinMaxScaler'] = function() {};
+                constructorTable['sklearn.preprocessing.data.OneHotEncoder'] = function() {};
+                constructorTable['sklearn.preprocessing.data.PowerTransformer'] = function() {};
                 constructorTable['sklearn.preprocessing.data.RobustScaler'] = function() {};
                 constructorTable['sklearn.preprocessing.data.StandardScaler'] = function() {};
                 constructorTable['sklearn.preprocessing.imputation.Imputer'] = function() {};
+                constructorTable['sklearn.preprocessing.label.LabelBinarizer'] = function() {};
                 constructorTable['sklearn.preprocessing.label.LabelEncoder'] = function() {};
                 constructorTable['sklearn.preprocessing.label.MultiLabelBinarizer'] = function() {};
                 constructorTable['sklearn.svm.classes.LinearSVC'] = function() {};
@@ -230,6 +249,7 @@ sklearn.ModelFactory = class {
                 constructorTable['sklearn.utils.deprecation.DeprecationDict'] = function() {};
                 constructorTable['xgboost.core.Booster'] = function() {};
                 constructorTable['xgboost.sklearn.XGBClassifier'] = function() {};
+                constructorTable['xgboost.sklearn.XGBRegressor'] = function() {};
                 constructorTable['gensim.models.word2vec.Vocab'] = function() {};
                 constructorTable['gensim.models.word2vec.Word2Vec'] = function() {};
                 constructorTable['gensim.models.keyedvectors.Vocab'] = function() {};
@@ -247,7 +267,7 @@ sklearn.ModelFactory = class {
                 };
                 functionTable['numpy.core.multiarray.scalar'] = function(dtype, rawData) {
                     var data = rawData;
-                    if (rawData.constructor !== Uint8Array) {
+                    if (typeof rawData === 'string' || rawData instanceof String) {
                         data = new Uint8Array(rawData.length);
                         for (var i = 0; i < rawData.length; i++) {
                             data[i] = rawData.charCodeAt(i);
@@ -255,6 +275,8 @@ sklearn.ModelFactory = class {
                     }
                     var dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
                     switch (dtype.name) {
+                        case 'uint8':
+                            return dataView.getUint8(0);
                         case 'float32':
                             return dataView.getFloat32(0, true);
                         case 'float64':
@@ -266,7 +288,7 @@ sklearn.ModelFactory = class {
                         case 'int32':
                             return dataView.getInt32(0, true);
                         case 'int64':
-                            return new long.Long(dataView.getInt32(0, true), dataView.getInt32(4, true), true);
+                            return new long.Long(dataView.getInt32(0, true), dataView.getInt32(4, true), false);
                     }
                     throw new sklearn.Error("Unknown scalar type '" + dtype.name + "'.");
                 };
@@ -302,6 +324,21 @@ sklearn.ModelFactory = class {
                 functionTable['__builtin__.bytearray'] = function(data, encoding) {
                     return { data: data, encoding: encoding };
                 };
+                functionTable['builtins.bytearray'] = function(data) {
+                    return { data: data };
+                };
+                functionTable['builtins.slice'] = function(start, stop, step) {
+                    return { start: start, stop: stop, step: step };
+                }
+                functionTable['cloudpickle.cloudpickle._builtin_type'] = function(name) {
+                    return name;
+                }
+
+                var unknownNameMap = new Set();
+                var knownPackageMap = new Set([ 
+                    'sklearn', 'collections', '__builtin__', 'builtins',
+                    'copy_reg', 'joblib','xgboost', 'lightgbm', 'gensim', 'numpy'
+                ]);
 
                 var function_call = (name, args) => {
                     var func = functionTable[name];
@@ -313,11 +350,9 @@ sklearn.ModelFactory = class {
                     if (constructor) {
                         constructor.apply(obj, args);
                     }
-                    else if (name) {
-                        var map =  {
-                            'sklearn': true, 'collections': true, '__builtin__': true, 'copy_reg': true, 'joblib': true,
-                            'xgboost': true, 'lightgbm': true, 'gensim': true, 'numpy': true };
-                        if (map[name.split('.').shift()]) {
+                    else if (name && !unknownNameMap.has(name)) {
+                        unknownNameMap.add(name);
+                        if (knownPackageMap.has(name.split('.').shift())) {
                             host.exception(new sklearn.Error("Unknown function '" + name + "' in '" + identifier + "'."), false);
                         }
                     }
@@ -353,31 +388,29 @@ sklearn.ModelFactory = class {
                     return null;
                 }
 
-                weights = find_weight_dict([ obj, obj.blobs ]);
+                weights = find_weight_dict([ obj, obj.blobs,  ]);
                 if (weights) {
                     obj = null;
                 }
-                if (!weights && !obj && !obj.__type__) {
+                if (!weights && (!obj || !obj.__type__)) {
                     throw new sklearn.Error('Root object has no type.');
                 }
             }
             catch (error) {
                 var message = error && error.message ? error.message : error.toString();
                 message = message.endsWith('.') ? message.substring(0, message.length - 1) : message;
-                callback(new sklearn.Error(message + " in '" + identifier + "'."), null);
-                return;
+                throw new sklearn.Error(message + " in '" + identifier + "'.");
             }
     
-            sklearn.Metadata.open(host, (err, metadata) => {
+            return sklearn.Metadata.open(host).then((metadata) => {
                 try {
-                    var model = new sklearn.Model(metadata, obj, weights);
-                    callback(null, model);
-                    return;
+                    return new sklearn.Model(metadata, obj, weights);
                 }
                 catch (error) {
                     host.exception(error, false);
-                    callback(new sklearn.Error(error.message), null);
-                    return;
+                    var message = error && error.message ? error.message : error.toString();
+                    message = message.endsWith('.') ? message.substring(0, message.length - 1) : message;
+                    throw new sklearn.Error(message + " in '" + identifier + "'.");
                 }
             });
         });
@@ -451,8 +484,8 @@ sklearn.Graph = class {
             }
             this._nodes = this._nodes.concat(groups.map((group) => {
                 var inputs = group.arrays.map((array) => {
-                    return new sklearn.Argument(array.name, [ 
-                        new sklearn.Connection(array.key, null, new sklearn.Tensor(array.key, array.value))
+                    return new sklearn.Parameter(array.name, [ 
+                        new sklearn.Argument(array.key, null, new sklearn.Tensor(array.key, array.value))
                     ]);
                 });
                 return new sklearn.Node(this._metadata, '', group.id, { __type__: 'sklearn._.Weights' }, inputs, []);
@@ -470,13 +503,13 @@ sklearn.Graph = class {
             }
         }
         inputs = inputs.map((input) => {
-            return new sklearn.Argument(input, [ new sklearn.Connection(input, null, null) ]);
+            return new sklearn.Parameter(input, [ new sklearn.Argument(input, null, null) ]);
         });
         inputs = inputs.concat(initializers.map((initializer) => {
-            return new sklearn.Argument(initializer.name, [ new sklearn.Connection('', null, initializer) ]);
+            return new sklearn.Parameter(initializer.name, [ new sklearn.Argument('', null, initializer) ]);
         }));
         outputs = outputs.map((output) => {
-            return new sklearn.Argument(output, [ new sklearn.Connection(output, null, null) ]);
+            return new sklearn.Parameter(output, [ new sklearn.Argument(output, null, null) ]);
         });
         var node = new sklearn.Node(this._metadata, group, name, obj, inputs, outputs);
         this._nodes.push(node);
@@ -499,10 +532,10 @@ sklearn.Graph = class {
     }
 };
 
-sklearn.Argument = class {
-    constructor(name, connections) {
+sklearn.Parameter = class {
+    constructor(name, args) {
         this._name = name;
-        this._connections = connections;
+        this._arguments = args;
     }
 
     get name() {
@@ -513,12 +546,12 @@ sklearn.Argument = class {
         return true;
     }
 
-    get connections() {
-        return this._connections;
+    get arguments() {
+        return this._arguments;
     }
 };
 
-sklearn.Connection = class {
+sklearn.Argument = class {
     constructor(id, type, initializer) {
         this._id = id;
         this._type = type || null;
@@ -656,13 +689,13 @@ sklearn.Attribute = class {
 
         var schema = metadata.getAttributeSchema(node.operator, this._name);
         if (schema) {
-            if (schema.hasOwnProperty('option') && schema.option == 'optional' && this._value == null) {
+            if (Object.prototype.hasOwnProperty.call(schema, 'option') && schema.option == 'optional' && this._value == null) {
                 this._visible = false;
             }
-            else if (schema.hasOwnProperty('visible') && !schema.visible) {
+            else if (Object.prototype.hasOwnProperty.call(schema, 'visible') && !schema.visible) {
                 this._visible = false;
             }
-            else if (schema.hasOwnProperty('default')) {
+            else if (Object.prototype.hasOwnProperty.call(schema, 'default')) {
                 if (sklearn.Attribute._isEquivalent(schema.default, this._value)) {
                     this._visible = false;
                 }
@@ -732,7 +765,7 @@ sklearn.Attribute = class {
         } 
         while (size--) {
             var key = keys[size];
-            if (!(b.hasOwnProperty(key) && sklearn.Attribute._isEquivalent(a[key], b[key]))) {
+            if (!(Object.prototype.hasOwnProperty.call(b, key) && sklearn.Attribute._isEquivalent(a[key], b[key]))) {
                 return false;
             }
         }
@@ -862,12 +895,12 @@ sklearn.Tensor = class {
                         context.count++;
                         break;
                     case 'int64':
-                        results.push(new long.Long(context.rawData.getUint32(context.index, true), context.rawData.getUint32(context.index + 4, true), true));
+                        results.push(new long.Long(context.rawData.getUint32(context.index, true), context.rawData.getUint32(context.index + 4, true), false));
                         context.index += 8;
                         context.count++;
                         break;
                     case 'uint64':
-                        results.push(new long.Long(context.rawData.getUint32(context.index, true), context.rawData.getUint32(context.index + 4, true), false));
+                        results.push(new long.Long(context.rawData.getUint32(context.index, true), context.rawData.getUint32(context.index + 4, true), true));
                         context.index += 8;
                         context.count++;
                         break;
@@ -938,16 +971,17 @@ sklearn.TensorShape = class {
 
 sklearn.Metadata = class {
 
-    static open(host, callback) {
+    static open(host) {
         if (sklearn.Metadata._metadata) {
-            callback(null, sklearn.Metadata._metadata);
+            return Promise.resolve(sklearn.Metadata._metadata);
         }
-        else {
-            host.request(null, 'sklearn-metadata.json', 'utf-8', (err, data) => {
-                sklearn.Metadata._metadata = new sklearn.Metadata(data);
-                callback(null, sklearn.Metadata._metadata);
-            });
-        }
+        return host.request(null, 'sklearn-metadata.json', 'utf-8').then((data) => {
+            sklearn.Metadata._metadata = new sklearn.Metadata(data);
+            return sklearn.Metadata._metadata;
+        }).catch(() => {
+            sklearn.Metadata._metadata = new sklearn.Metadata(null);
+            return sklearn.Metadata._metadata;
+        });
     }
 
     constructor(data) {
